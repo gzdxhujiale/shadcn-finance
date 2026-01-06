@@ -443,12 +443,12 @@ const handleDelete = (id) => {
       <!-- Sub Tabs for Dimension -->
       <div v-if="mainTab === 'dimension'" class="bg-white dark:bg-slate-950 border-b px-6">
         <Tabs v-model:model-value="dimensionSubTab">
-          <TabsList class="h-auto p-0 bg-transparent gap-1">
+          <TabsList class="h-12 w-auto bg-transparent p-0 justify-start gap-6">
             <TabsTrigger 
               v-for="tab in DIM_TABS" 
               :key="tab.key" 
               :value="tab.key"
-              class="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:rounded-none px-4 py-3"
+              class="relative h-12 !flex-none rounded-none border-0 border-b-2 border-transparent bg-transparent px-1 pb-3 pt-3 font-medium text-muted-foreground shadow-none transition-none focus-visible:!ring-0 focus-visible:!ring-offset-0 focus-visible:!outline-none focus-visible:!border-b-2 focus-visible:!border-t-0 focus-visible:!border-x-0 data-[state=active]:!border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:!shadow-none hover:text-primary data-[state=active]:!bg-transparent"
             >
               {{ tab.label }}
             </TabsTrigger>
@@ -459,16 +459,16 @@ const handleDelete = (id) => {
       <!-- Sub Tabs for Online -->
       <div v-if="mainTab === 'online'" class="bg-white dark:bg-slate-950 border-b px-6">
         <Tabs v-model:model-value="onlineSubTab">
-          <TabsList class="h-auto p-0 bg-transparent gap-1">
+          <TabsList class="h-12 w-auto bg-transparent p-0 justify-start gap-6">
             <TabsTrigger 
               value="mapping"
-              class="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:rounded-none px-4 py-3"
+              class="relative h-12 !flex-none rounded-none border-0 border-b-2 border-transparent bg-transparent px-1 pb-3 pt-3 font-medium text-muted-foreground shadow-none transition-none focus-visible:!ring-0 focus-visible:!ring-offset-0 focus-visible:!outline-none focus-visible:!border-b-2 focus-visible:!border-t-0 focus-visible:!border-x-0 data-[state=active]:!border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:!shadow-none hover:text-primary data-[state=active]:!bg-transparent"
             >
               科目映射表
             </TabsTrigger>
             <TabsTrigger 
               value="structure"
-              class="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:rounded-none px-4 py-3"
+              class="relative h-12 !flex-none rounded-none border-0 border-b-2 border-transparent bg-transparent px-1 pb-3 pt-3 font-medium text-muted-foreground shadow-none transition-none focus-visible:!ring-0 focus-visible:!ring-offset-0 focus-visible:!outline-none focus-visible:!border-b-2 focus-visible:!border-t-0 focus-visible:!border-x-0 data-[state=active]:!border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:!shadow-none hover:text-primary data-[state=active]:!bg-transparent"
             >
               账单结构定义表
             </TabsTrigger>
@@ -479,22 +479,22 @@ const handleDelete = (id) => {
       <!-- Sub Tabs for Offline -->
       <div v-if="mainTab === 'offline'" class="bg-white dark:bg-slate-950 border-b px-6">
         <Tabs v-model:model-value="offlineSubTab">
-          <TabsList class="h-auto p-0 bg-transparent gap-1">
+          <TabsList class="h-12 w-auto bg-transparent p-0 justify-start gap-6">
             <TabsTrigger 
               value="main"
-              class="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:rounded-none px-4 py-3"
+              class="relative h-12 !flex-none rounded-none border-0 border-b-2 border-transparent bg-transparent px-1 pb-3 pt-3 font-medium text-muted-foreground shadow-none transition-none focus-visible:!ring-0 focus-visible:!ring-offset-0 focus-visible:!outline-none focus-visible:!border-b-2 focus-visible:!border-t-0 focus-visible:!border-x-0 data-[state=active]:!border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:!shadow-none hover:text-primary data-[state=active]:!bg-transparent"
             >
               主流程规则表
             </TabsTrigger>
             <TabsTrigger 
               value="field"
-              class="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:rounded-none px-4 py-3"
+              class="relative h-12 !flex-none rounded-none border-0 border-b-2 border-transparent bg-transparent px-1 pb-3 pt-3 font-medium text-muted-foreground shadow-none transition-none focus-visible:!ring-0 focus-visible:!ring-offset-0 focus-visible:!outline-none focus-visible:!border-b-2 focus-visible:!border-t-0 focus-visible:!border-x-0 data-[state=active]:!border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:!shadow-none hover:text-primary data-[state=active]:!bg-transparent"
             >
               字段映射表
             </TabsTrigger>
             <TabsTrigger 
               value="subject"
-              class="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:rounded-none px-4 py-3"
+              class="relative h-12 !flex-none rounded-none border-0 border-b-2 border-transparent bg-transparent px-1 pb-3 pt-3 font-medium text-muted-foreground shadow-none transition-none focus-visible:!ring-0 focus-visible:!ring-offset-0 focus-visible:!outline-none focus-visible:!border-b-2 focus-visible:!border-t-0 focus-visible:!border-x-0 data-[state=active]:!border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:!shadow-none hover:text-primary data-[state=active]:!bg-transparent"
             >
               科目映射表
             </TabsTrigger>

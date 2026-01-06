@@ -16,7 +16,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from '@/components/ui/sidebar'
-import { useNavigation } from '@/composables/useNavigation.js'
+import { useNavigation } from '@/composables/useNavigation'
 
 // 导入所有页面组件
 // workspace
@@ -43,7 +43,7 @@ import UserManual from '@/components/pages/config/UserManual.vue'
 const { breadcrumbs, currentPage, setDetailTitle } = useNavigation()
 
 // 页面组件映射
-const pageComponents = {
+const pageComponents: Record<string, any> = {
   TodoList,
   History,
   ReportCompany,

@@ -16,7 +16,7 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from '@/components/ui/sidebar'
-import { useNavigation } from '@/composables/useNavigation.js'
+import { useNavigation } from '@/composables/useNavigation'
 
 const props = defineProps<{
   items: {

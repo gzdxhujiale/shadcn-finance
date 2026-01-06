@@ -1,17 +1,18 @@
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted, reactive } from 'vue'
 import TaskDetail from './TaskDetail.vue'
-import { ListTodo, Search, RotateCw, ChevronRight, Filter } from 'lucide-vue-next'
+import { Search, RotateCw, ChevronRight, Filter, Check, ChevronDown } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from '@/components/ui/dropdown-menu'
 import {
   Table,
   TableBody,
@@ -50,7 +51,7 @@ const generateTodoData = () => {
       })
     })
   })
-  const shops = allShops.slice(0, 20)
+  const shops = allShops.slice(0, 20) // 取前20个作为示例
   
   PERIOD_OPTIONS.forEach((period) => {
     shops.forEach((shopInfo) => {
@@ -96,23 +97,63 @@ const generateTodoData = () => {
 const todoData = ref(generateTodoData())
 const view = ref('list')
 const selectedItem = ref(null)
-const filters = ref({ period: '2025.11', client: '', platform: '', shop: '', search: '' })
+
+// 使用 reactive 管理筛选状态，模拟 store
+const filters = reactive({
+  period: [...PERIOD_OPTIONS],
+  client: [...CLIENT_OPTIONS],
+  platform: [...PLATFORM_OPTIONS],
+  shop: [],
+  search: ''
+})
 
 // --- 计算属性 ---
 const availableShops = computed(() => {
-  if (filters.value.client && filters.value.platform) {
-    return SHOP_SUFFIXES.map(suffix => `${filters.value.client}${filters.value.platform}${suffix}`)
+  const shops = []
+  // 必须同时有选中的客户和平台才会有店铺
+  if (filters.client.length > 0 && filters.platform.length > 0) {
+    // 找出所有可能的组合
+    const potentialShops = []
+    CLIENT_OPTIONS.forEach(c => {
+      PLATFORM_OPTIONS.forEach(p => {
+        SHOP_SUFFIXES.forEach(s => {
+           potentialShops.push(`${c}${p}${s}`)
+        })
+      })
+    })
+
+    // 根据当前选中的 client 和 platform 进行过滤
+    potentialShops.forEach(s => {
+       const hasClient = filters.client.some(c => s.includes(c))
+       const hasPlatform = filters.platform.some(p => s.includes(p))
+       if (hasClient && hasPlatform) {
+         shops.push(s)
+       }
+    })
   }
-  return []
+  return [...new Set(shops)].sort() 
 })
 
-const filteredData = computed(() => todoData.value.filter(i =>
-  (!filters.value.period || i.period === filters.value.period) &&
-  (!filters.value.client || i.client === filters.value.client) &&
-  (!filters.value.platform || i.platform === filters.value.platform) &&
-  (!filters.value.shop || i.shop === filters.value.shop) &&
-  (!filters.value.search || i.shop.toLowerCase().includes(filters.value.search.toLowerCase()))
-))
+// 初始化 shop
+onMounted(() => {
+  filters.shop = [...availableShops.value]
+})
+
+// 监听 availableShops 自动全选
+watch(availableShops, (newShops) => {
+  filters.shop = [...newShops]
+})
+
+// 过滤数据逻辑
+const filteredData = computed(() => {
+  return todoData.value.filter(i =>
+    filters.period.includes(i.period) &&
+    filters.client.includes(i.client) &&
+    filters.platform.includes(i.platform) &&
+    filters.shop.includes(i.shop) &&
+    (!filters.search || i.shop.toLowerCase().includes(filters.search.toLowerCase()))
+  )
+})
 
 const stats = computed(() => ({
   total: filteredData.value.length,
@@ -122,17 +163,16 @@ const stats = computed(() => ({
 
 // 分页
 const currentPage = ref(1)
-const pageSize = 12
+const pageSize = 10
 const paginatedData = computed(() => {
   const start = (currentPage.value - 1) * pageSize
   return filteredData.value.slice(start, start + pageSize)
 })
-const totalPages = computed(() => Math.ceil(filteredData.value.length / pageSize))
+const totalPages = computed(() => Math.ceil(filteredData.value.length / pageSize) || 1)
 
 // --- 导航 ---
 const { detailTitle } = useNavigation()
 
-// 监听detailTitle变化，当被清除时返回列表视图
 watch(detailTitle, (newVal) => {
   if (newVal === null && view.value === 'detail') {
     goBack()
@@ -141,7 +181,11 @@ watch(detailTitle, (newVal) => {
 
 // --- 方法 ---
 const resetFilters = () => {
-  filters.value = { period: '2025.11', client: '', platform: '', shop: '', search: '' }
+  filters.period = [...PERIOD_OPTIONS]
+  filters.client = [...CLIENT_OPTIONS]
+  filters.platform = [...PLATFORM_OPTIONS]
+  filters.search = ''
+  // shop 由 watch 自动处理
 }
 
 const goToDetail = (item) => {
@@ -167,25 +211,52 @@ const getStatusVariant = (status) => {
   if (status === 'verified') return 'secondary'
   return 'outline'
 }
+
+// 辅助方法
+const getFilterLabel = (key, allOptions) => {
+  const selected = filters[key]
+  if (selected.length === 0) return '未选择'
+  if (selected.length === allOptions.length) return '全部'
+  if (selected.length === 1) return selected[0]
+  return `已选 ${selected.length} 項`
+}
+
+const toggleAll = (key, allOptions) => {
+  if (filters[key].length === allOptions.length) {
+    filters[key] = []
+  } else {
+    filters[key] = [...allOptions]
+  }
+}
+
+const toggleOption = (key, option, isChecked) => {
+  if (isChecked) {
+    if (!filters[key].includes(option)) {
+      filters[key].push(option)
+    }
+  } else {
+    filters[key] = filters[key].filter(v => v !== option)
+  }
+}
 </script>
 
 <template>
-  <!-- 统计数据 Teleport - 放在 transition 外部 -->
+  <!-- 统计数据 Teleport -->
   <Teleport to="#breadcrumb-actions" defer v-if="view === 'list'">
     <div class="flex items-center gap-2">
       <div class="text-center">
-        <div class="text-xs text-muted-foreground">总任务</div>
-        <div class="text-lg font-bold">{{ stats.total }}</div>
+        <div class="text-[10px] text-muted-foreground uppercase">Total</div>
+        <div class="text-sm font-bold leading-none">{{ stats.total }}</div>
       </div>
       <div class="w-px h-6 bg-border"></div>
       <div class="text-center">
-        <div class="text-xs text-muted-foreground">待处理</div>
-        <div class="text-lg font-bold text-amber-600">{{ stats.pending }}</div>
+        <div class="text-[10px] text-muted-foreground uppercase">Pending</div>
+        <div class="text-sm font-bold text-amber-600 leading-none">{{ stats.pending }}</div>
       </div>
       <div class="w-px h-6 bg-border"></div>
       <div class="text-center">
-        <div class="text-xs text-muted-foreground">已完成</div>
-        <div class="text-lg font-bold text-emerald-600">{{ stats.done }}</div>
+        <div class="text-[10px] text-muted-foreground uppercase">Done</div>
+        <div class="text-sm font-bold text-emerald-600 leading-none">{{ stats.done }}</div>
       </div>
     </div>
   </Teleport>
@@ -198,145 +269,233 @@ const getStatusVariant = (status) => {
         <div class="p-6 h-full">
           <div class="bg-background rounded-lg border p-6 h-full flex flex-col">
             <!-- 工具栏 -->
-            <div class="flex justify-between items-center mb-4 flex-wrap gap-4">
+            <div class="flex justify-between items-center mb-6 flex-wrap gap-4">
               <div class="flex items-center gap-3">
-                <span class="font-semibold">当月任务</span>
-                <Badge>OCT</Badge>
+                <span class="font-semibold text-lg">当月任务清单</span>
+                <Badge variant="outline" class="font-normal text-xs uppercase tracking-wider">OCT 2025</Badge>
               </div>
               
-              <div class="flex items-center gap-3">
-                <!-- 筛选器 -->
-                <div class="flex items-center gap-2 border rounded-full px-4 py-1 bg-muted/30">
-                  <Filter :size="14" class="text-muted-foreground" />
-                  
-                  <Select v-model="filters.period">
-                    <SelectTrigger class="h-7 border-0 bg-transparent text-sm w-[100px]">
-                      <SelectValue placeholder="账期" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem v-for="p in PERIOD_OPTIONS" :key="p" :value="p">{{ p }}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  
-                  <div class="w-px h-3 bg-border"></div>
-                  
-                  <Select v-model="filters.client" @update:model-value="filters.shop = ''">
-                    <SelectTrigger class="h-7 border-0 bg-transparent text-sm w-[80px]">
-                      <SelectValue placeholder="客户" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem v-for="c in CLIENT_OPTIONS" :key="c" :value="c">{{ c }}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  
-                  <div class="w-px h-3 bg-border"></div>
-                  
-                  <Select v-model="filters.platform" @update:model-value="filters.shop = ''">
-                    <SelectTrigger class="h-7 border-0 bg-transparent text-sm w-[80px]">
-                      <SelectValue placeholder="平台" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem v-for="p in PLATFORM_OPTIONS" :key="p" :value="p">{{ p }}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  
-                  <div class="w-px h-3 bg-border"></div>
-                  
-                  <Select v-model="filters.shop" :disabled="!filters.client || !filters.platform">
-                    <SelectTrigger class="h-7 border-0 bg-transparent text-sm w-[80px]">
-                      <SelectValue placeholder="店铺" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem v-for="s in availableShops" :key="s" :value="s">{{ s }}</SelectItem>
-                    </SelectContent>
-                  </Select>
+              <div class="flex items-center gap-3 flex-wrap">
+                <!-- 筛选器组 -->
+                <div class="flex items-center gap-3">
+                  <!-- 账期 -->
+                  <div class="flex items-center border rounded-md overflow-hidden h-8 shadow-sm">
+                     <div class="px-3 py-1.5 bg-muted/40 border-r text-xs font-medium text-muted-foreground whitespace-nowrap">
+                       账期
+                     </div>
+                     <DropdownMenu>
+                       <DropdownMenuTrigger class="h-full px-3 text-xs w-[110px] bg-background hover:bg-muted/20 flex justify-between items-center transition-colors focus:outline-none">
+                         <span class="truncate">{{ getFilterLabel('period', PERIOD_OPTIONS) }}</span>
+                         <ChevronDown class="w-3 h-3 opacity-50" />
+                       </DropdownMenuTrigger>
+                       <DropdownMenuContent align="start" class="w-48">
+                         <div class="px-2 py-1.5 text-xs cursor-pointer hover:bg-muted rounded flex items-center select-none" @click.prevent="toggleAll('period', PERIOD_OPTIONS)">
+                           <div class="flex items-center justify-center w-4 h-4 mr-2 border rounded" :class="filters.period.length === PERIOD_OPTIONS.length ? 'bg-primary border-primary text-primary-foreground' : 'border-input'">
+                              <Check v-if="filters.period.length === PERIOD_OPTIONS.length" class="w-3 h-3" />
+                           </div>
+                           <span>全选</span>
+                         </div>
+                         <DropdownMenuSeparator />
+                         <DropdownMenuCheckboxItem 
+                           v-for="p in PERIOD_OPTIONS" 
+                           :key="p" 
+                           :checked="filters.period.includes(p)"
+                           @select="(e) => { e.preventDefault(); toggleOption('period', p, !filters.period.includes(p)) }"
+                           class="text-xs"
+                         >
+                           {{ p }}
+                         </DropdownMenuCheckboxItem>
+                       </DropdownMenuContent>
+                     </DropdownMenu>
+                  </div>
+
+                  <!-- 客户 -->
+                  <div class="flex items-center border rounded-md overflow-hidden h-8 shadow-sm">
+                     <div class="px-3 py-1.5 bg-muted/40 border-r text-xs font-medium text-muted-foreground whitespace-nowrap">
+                       客户
+                     </div>
+                     <DropdownMenu>
+                       <DropdownMenuTrigger class="h-full px-3 text-xs w-[100px] bg-background hover:bg-muted/20 flex justify-between items-center transition-colors focus:outline-none">
+                         <span class="truncate">{{ getFilterLabel('client', CLIENT_OPTIONS) }}</span>
+                         <ChevronDown class="w-3 h-3 opacity-50" />
+                       </DropdownMenuTrigger>
+                       <DropdownMenuContent align="start" class="w-48">
+                         <div class="px-2 py-1.5 text-xs cursor-pointer hover:bg-muted rounded flex items-center select-none" @click.prevent="toggleAll('client', CLIENT_OPTIONS)">
+                           <div class="flex items-center justify-center w-4 h-4 mr-2 border rounded" :class="filters.client.length === CLIENT_OPTIONS.length ? 'bg-primary border-primary text-primary-foreground' : 'border-input'">
+                              <Check v-if="filters.client.length === CLIENT_OPTIONS.length" class="w-3 h-3" />
+                           </div>
+                           <span>全选</span>
+                         </div>
+                         <DropdownMenuSeparator />
+                         <DropdownMenuCheckboxItem 
+                           v-for="c in CLIENT_OPTIONS" 
+                           :key="c" 
+                           :checked="filters.client.includes(c)"
+                           @select="(e) => { e.preventDefault(); toggleOption('client', c, !filters.client.includes(c)) }"
+                           class="text-xs"
+                         >
+                           {{ c }}
+                         </DropdownMenuCheckboxItem>
+                       </DropdownMenuContent>
+                     </DropdownMenu>
+                  </div>
+
+                  <!-- 平台 -->
+                  <div class="flex items-center border rounded-md overflow-hidden h-8 shadow-sm">
+                     <div class="px-3 py-1.5 bg-muted/40 border-r text-xs font-medium text-muted-foreground whitespace-nowrap">
+                       平台
+                     </div>
+                     <DropdownMenu>
+                       <DropdownMenuTrigger class="h-full px-3 text-xs w-[100px] bg-background hover:bg-muted/20 flex justify-between items-center transition-colors focus:outline-none">
+                         <span class="truncate">{{ getFilterLabel('platform', PLATFORM_OPTIONS) }}</span>
+                         <ChevronDown class="w-3 h-3 opacity-50" />
+                       </DropdownMenuTrigger>
+                       <DropdownMenuContent align="start" class="w-48">
+                         <div class="px-2 py-1.5 text-xs cursor-pointer hover:bg-muted rounded flex items-center select-none" @click.prevent="toggleAll('platform', PLATFORM_OPTIONS)">
+                            <div class="flex items-center justify-center w-4 h-4 mr-2 border rounded" :class="filters.platform.length === PLATFORM_OPTIONS.length ? 'bg-primary border-primary text-primary-foreground' : 'border-input'">
+                              <Check v-if="filters.platform.length === PLATFORM_OPTIONS.length" class="w-3 h-3" />
+                           </div>
+                           <span>全选</span>
+                         </div>
+                         <DropdownMenuSeparator />
+                         <DropdownMenuCheckboxItem 
+                           v-for="p in PLATFORM_OPTIONS" 
+                           :key="p" 
+                           :checked="filters.platform.includes(p)"
+                           @select="(e) => { e.preventDefault(); toggleOption('platform', p, !filters.platform.includes(p)) }"
+                           class="text-xs"
+                         >
+                           {{ p }}
+                         </DropdownMenuCheckboxItem>
+                       </DropdownMenuContent>
+                     </DropdownMenu>
+                  </div>
+
+                  <!-- 店铺 (Available) -->
+                  <div class="flex items-center border rounded-md overflow-hidden h-8 shadow-sm">
+                     <div class="px-3 py-1.5 bg-muted/40 border-r text-xs font-medium text-muted-foreground whitespace-nowrap">
+                       店铺
+                     </div>
+                     <DropdownMenu>
+                       <DropdownMenuTrigger class="h-full px-3 text-xs w-[140px] bg-background hover:bg-muted/20 flex justify-between items-center transition-colors focus:outline-none">
+                         <span class="truncate">{{ getFilterLabel('shop', availableShops) }}</span>
+                         <ChevronDown class="w-3 h-3 opacity-50" />
+                       </DropdownMenuTrigger>
+                       <DropdownMenuContent align="start" class="w-56 max-h-[300px] overflow-y-auto">
+                         <div class="px-2 py-1.5 text-xs cursor-pointer hover:bg-muted rounded flex items-center select-none" @click.prevent="toggleAll('shop', availableShops)">
+                            <div class="flex items-center justify-center w-4 h-4 mr-2 border rounded" :class="filters.shop.length === availableShops.length ? 'bg-primary border-primary text-primary-foreground' : 'border-input'">
+                              <Check v-if="filters.shop.length === availableShops.length" class="w-3 h-3" />
+                           </div>
+                           <span>全选</span>
+                         </div>
+                         <DropdownMenuSeparator />
+                         <DropdownMenuCheckboxItem 
+                           v-for="s in availableShops" 
+                           :key="s" 
+                           :checked="filters.shop.includes(s)"
+                           @select="(e) => { e.preventDefault(); toggleOption('shop', s, !filters.shop.includes(s)) }"
+                           class="text-xs"
+                         >
+                           {{ s }}
+                         </DropdownMenuCheckboxItem>
+                       </DropdownMenuContent>
+                     </DropdownMenu>
+                  </div>
                 </div>
 
+                <div class="w-px h-6 bg-border mx-1"></div>
+
+                <!-- 搜索与重置 -->
                 <div class="relative">
-                  <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" :size="16" />
+                  <Search class="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-muted-foreground" :size="14" />
                   <Input
                     v-model="filters.search"
-                    placeholder="搜索..."
-                    class="pl-10 w-60 h-9 rounded-full bg-muted/30"
+                    placeholder="搜索店铺..."
+                    class="pl-9 w-48 h-8 text-xs rounded-md bg-background border shadow-sm focus-visible:ring-1"
                   />
                 </div>
                 
-                <Button variant="ghost" size="icon" class="rounded-full" @click="resetFilters">
-                  <RotateCw :size="16" />
+                <Button variant="outline" size="sm" class="h-8 w-8 p-0" @click="resetFilters">
+                  <RotateCw :size="14" />
                 </Button>
               </div>
             </div>
             
             <!-- 表格 -->
-            <div class="border rounded-lg overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow class="bg-muted/50">
-                    <TableHead class="w-[100px]">账期</TableHead>
-                    <TableHead class="w-[90px]">客户</TableHead>
-                    <TableHead class="w-[100px]">平台</TableHead>
-                    <TableHead>店铺名称</TableHead>
-                    <TableHead class="w-[120px]">状态</TableHead>
-                    <TableHead class="w-[120px]">剩余时间</TableHead>
-                    <TableHead class="w-[80px] text-center">操作</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <TableRow v-for="item in paginatedData" :key="item.id" class="hover:bg-muted/30">
-                    <TableCell class="font-medium">{{ item.period }}</TableCell>
-                    <TableCell>{{ item.client }}</TableCell>
-                    <TableCell>
-                      <Badge :variant="getPlatformColor(item.platform)" class="text-xs">
-                        {{ item.platform }}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{{ item.shop }}</TableCell>
-                    <TableCell>
-                      <Badge :variant="getStatusVariant(item.status)" class="text-xs">
-                        {{ item.statusText }}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        v-if="item.status === 'pending'"
-                        class="text-xs px-2 py-1 rounded"
-                        :class="item.deadline <= 3 ? 'bg-red-50 text-red-600' : 'bg-muted text-muted-foreground'"
-                      >
-                        {{ item.deadlineText }}
-                      </span>
-                      <span v-else class="text-muted-foreground">-</span>
-                    </TableCell>
-                    <TableCell class="text-center">
-                      <Button variant="ghost" size="icon" @click="goToDetail(item)">
-                        <ChevronRight :size="16" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
+            <div class="border rounded-lg overflow-hidden flex-1 relative">
+              <div class="absolute inset-0 overflow-auto">
+                <Table>
+                  <TableHeader class="sticky top-0 bg-background z-10 shadow-sm">
+                    <TableRow class="bg-muted/40 text-xs">
+                      <TableHead class="w-[100px] h-9">账期</TableHead>
+                      <TableHead class="w-[100px] h-9">客户</TableHead>
+                      <TableHead class="w-[120px] h-9">平台</TableHead>
+                      <TableHead class="h-9">店铺名称</TableHead>
+                      <TableHead class="w-[120px] h-9">状态</TableHead>
+                      <TableHead class="w-[120px] h-9">剩余时间</TableHead>
+                      <TableHead class="w-[80px] h-9 text-center">操作</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    <TableRow v-for="item in paginatedData" :key="item.id" class="hover:bg-muted/30 h-10 border-b">
+                      <TableCell class="font-medium text-xs font-mono">{{ item.period }}</TableCell>
+                      <TableCell class="text-xs">{{ item.client }}</TableCell>
+                      <TableCell>
+                        <Badge :variant="getPlatformColor(item.platform)" class="text-[10px] px-1.5 py-0 h-5">
+                          {{ item.platform }}
+                        </Badge>
+                      </TableCell>
+                      <TableCell class="text-xs">{{ item.shop }}</TableCell>
+                      <TableCell>
+                        <Badge :variant="getStatusVariant(item.status)" class="text-[10px] px-1.5 py-0 h-5 font-normal">
+                          {{ item.statusText }}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <span
+                          v-if="item.status === 'pending'"
+                          class="text-[10px] px-1.5 py-0.5 rounded font-medium"
+                          :class="item.deadline <= 3 ? 'bg-red-50 text-red-600' : 'bg-orange-50 text-orange-600'"
+                        >
+                          {{ item.deadlineText }}
+                        </span>
+                        <span v-else class="text-xs text-muted-foreground">-</span>
+                      </TableCell>
+                      <TableCell class="text-center">
+                        <Button variant="ghost" size="icon" class="h-6 w-6" @click="goToDetail(item)">
+                          <ChevronRight :size="14" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
             </div>
 
             <!-- 分页 -->
-            <div class="flex justify-between items-center mt-4">
-              <div class="text-sm text-muted-foreground">
-                显示 {{ ((currentPage - 1) * pageSize) + 1 }} - {{ Math.min(currentPage * pageSize, filteredData.length) }} 条，共 {{ filteredData.length }} 条
+            <div class="flex justify-between items-center mt-3 pt-2">
+              <div class="text-xs text-muted-foreground">
+                Displaying {{ ((currentPage - 1) * pageSize) + 1 }} - {{ Math.min(currentPage * pageSize, filteredData.length) }} of {{ filteredData.length }} items
               </div>
-              <div class="flex gap-2">
-                <Button
+              <div class="flex gap-2 items-center">
+                 <div class="text-xs text-muted-foreground mr-2">Page {{ currentPage }} of {{ totalPages }}</div>
+                 <Button
                   variant="outline"
                   size="sm"
+                  class="h-7 text-xs px-3"
                   :disabled="currentPage === 1"
                   @click="currentPage--"
                 >
-                  上一页
+                  Prev
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
+                  class="h-7 text-xs px-3"
                   :disabled="currentPage === totalPages"
                   @click="currentPage++"
                 >
-                  下一页
+                  Next
                 </Button>
               </div>
             </div>
@@ -354,14 +513,3 @@ const getStatusVariant = (status) => {
     </transition>
   </div>
 </template>
-
-<style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s ease;
-}
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-</style>

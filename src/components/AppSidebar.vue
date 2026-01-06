@@ -19,7 +19,7 @@ const props = withDefaults(defineProps<SidebarProps>(), {
 })
 
 
-import { sidebarConfig } from '@/config/sidebar.js'
+import { sidebarConfig } from '@/config/sidebar'
 
 const data = sidebarConfig
 </script>

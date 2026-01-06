@@ -1,9 +1,10 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { Building2, ChevronDown, ChevronRight, Expand, Shrink, Info } from 'lucide-vue-next'
+import { Building2, ChevronDown, ChevronRight, Expand, Shrink, Info, Pencil, Save, Users, Folders } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
+import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
@@ -44,6 +45,7 @@ const selectedYear = ref('2025')
 const selectedMonth = ref('all')
 const activeTab = ref('balance')
 const expandedKeys = ref(new Set())
+const isBudgetEditing = ref(false)
 
 // --- 财务数据 ---
 const FULL_COMPANY_REPORTS = {
@@ -202,6 +204,66 @@ const companyBudgetData = computed(() => {
 const detailDialogOpen = ref(false)
 const detailData = ref(null)
 
+const amebaDetailVisible = ref(false)
+const selectedAmeba = ref(null)
+
+const subjectDetailVisible = ref(false)
+const selectedSubject = ref(null)
+
+const expenseDetailVisible = ref(false)
+const expenseDetailTitle = ref('')
+const expenseDetailData = ref([])
+
+const amebaDetailData = computed(() => {
+  if (!selectedAmeba.value) return []
+  return FULL_COMPANY_REPORTS.budget.slice(0, 6).map((b, i) => ({
+    id: i,
+    subject: b.subject,
+    actual: Math.floor(selectedAmeba.value.actual * 0.15 * (1 + Math.random())),
+    percent: Math.floor(Math.random() * 40 + 60)
+  }))
+})
+
+const subjectDetailData = computed(() => {
+  if (!selectedSubject.value) return []
+  return AMEBA_DEPARTMENTS.slice(0, 8).map(dept => ({
+    dept,
+    value: Math.floor(selectedSubject.value.actual / 8 * (0.8 + Math.random() * 0.4)),
+    percent: Math.floor(Math.random() * 80 + 20)
+  })).sort((a, b) => b.value - a.value)
+})
+
+const getMockExpenseDetails = (dept, subj) => {
+  return Array.from({ length: 6 }, (_, i) => ({
+    id: i,
+    date: `2025-10-${10 + i}`,
+    desc: `${dept}-${subj}-报销单${i + 1}`,
+    user: ['张三', '李四'][i % 2],
+    amount: Math.floor(Math.random() * 5000) + 200
+  }))
+}
+
+const openAmebaDetail = (record) => {
+  selectedAmeba.value = record
+  amebaDetailVisible.value = true
+}
+
+const openSubjectDetail = (record) => {
+  selectedSubject.value = record
+  subjectDetailVisible.value = true
+}
+
+const openExpenseDetail = (scope1, scope2) => {
+  expenseDetailTitle.value = `${scope1} - ${scope2} 费用明细`
+  expenseDetailData.value = getMockExpenseDetails(scope1, scope2)
+  expenseDetailVisible.value = true
+}
+
+const saveBudget = () => {
+  isBudgetEditing.value = false
+  // 这里可以添加实际的保存逻辑
+}
+
 // --- 方法 ---
 const formatNumber = (num) => {
   if (num === null || num === undefined) return '0'
@@ -316,40 +378,52 @@ watch(activeTab, () => {
     <div class="bg-background rounded-lg border h-full flex flex-col">
       <!-- Tabs -->
       <Tabs v-model="activeTab" class="flex-1 flex flex-col">
-        <div class="flex items-center justify-between border-b px-6 py-2">
-          <TabsList class="bg-transparent p-0 h-auto">
-            <TabsTrigger value="balance" class="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 py-3 focus:outline-none focus-visible:outline-none focus-visible:ring-0">
+        <div class="flex items-center justify-between border-b px-6">
+          <TabsList class="h-12 w-auto bg-transparent p-0 justify-start gap-6">
+            <TabsTrigger 
+              value="balance" 
+              class="relative h-12 rounded-none border-0 border-b-2 border-transparent bg-transparent px-1 pb-3 pt-3 font-medium text-muted-foreground shadow-none transition-none focus-visible:!ring-0 focus-visible:!ring-offset-0 focus-visible:!outline-none focus-visible:!border-b-2 focus-visible:!border-t-0 focus-visible:!border-x-0 data-[state=active]:!border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:!shadow-none hover:text-primary data-[state=active]:!bg-transparent"
+            >
               资产负债表
               <TooltipProvider>
                 <Tooltip>
-                  <TooltipTrigger><Info class="ml-1 h-3 w-3 text-muted-foreground" /></TooltipTrigger>
+                  <TooltipTrigger><Info class="ml-1 h-3 w-3 text-muted-foreground/70" /></TooltipTrigger>
                   <TooltipContent>数据来源: ads_BalanceSheet</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             </TabsTrigger>
-            <TabsTrigger value="profit" class="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 py-3 focus:outline-none focus-visible:outline-none focus-visible:ring-0">
+            <TabsTrigger 
+              value="profit" 
+              class="relative h-12 rounded-none border-0 border-b-2 border-transparent bg-transparent px-1 pb-3 pt-3 font-medium text-muted-foreground shadow-none transition-none focus-visible:!ring-0 focus-visible:!ring-offset-0 focus-visible:!outline-none focus-visible:!border-b-2 focus-visible:!border-t-0 focus-visible:!border-x-0 data-[state=active]:!border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:!shadow-none hover:text-primary data-[state=active]:!bg-transparent"
+            >
               利润表
               <TooltipProvider>
                 <Tooltip>
-                  <TooltipTrigger><Info class="ml-1 h-3 w-3 text-muted-foreground" /></TooltipTrigger>
+                  <TooltipTrigger><Info class="ml-1 h-3 w-3 text-muted-foreground/70" /></TooltipTrigger>
                   <TooltipContent>数据来源: ads_IncomeStatement</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             </TabsTrigger>
-            <TabsTrigger value="cash" class="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 py-3 focus:outline-none focus-visible:outline-none focus-visible:ring-0">
+            <TabsTrigger 
+              value="cash" 
+              class="relative h-12 rounded-none border-0 border-b-2 border-transparent bg-transparent px-1 pb-3 pt-3 font-medium text-muted-foreground shadow-none transition-none focus-visible:!ring-0 focus-visible:!ring-offset-0 focus-visible:!outline-none focus-visible:!border-b-2 focus-visible:!border-t-0 focus-visible:!border-x-0 data-[state=active]:!border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:!shadow-none hover:text-primary data-[state=active]:!bg-transparent"
+            >
               现金流量表
               <TooltipProvider>
                 <Tooltip>
-                  <TooltipTrigger><Info class="ml-1 h-3 w-3 text-muted-foreground" /></TooltipTrigger>
+                  <TooltipTrigger><Info class="ml-1 h-3 w-3 text-muted-foreground/70" /></TooltipTrigger>
                   <TooltipContent>数据来源: ads_CashFlowStatement</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             </TabsTrigger>
-            <TabsTrigger value="budget" class="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 py-3 focus:outline-none focus-visible:outline-none focus-visible:ring-0">
+            <TabsTrigger 
+              value="budget" 
+              class="relative h-12 rounded-none border-0 border-b-2 border-transparent bg-transparent px-1 pb-3 pt-3 font-medium text-muted-foreground shadow-none transition-none focus-visible:!ring-0 focus-visible:!ring-offset-0 focus-visible:!outline-none focus-visible:!border-b-2 focus-visible:!border-t-0 focus-visible:!border-x-0 data-[state=active]:!border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:!shadow-none hover:text-primary data-[state=active]:!bg-transparent"
+            >
               全面预算监控
               <TooltipProvider>
                 <Tooltip>
-                  <TooltipTrigger><Info class="ml-1 h-3 w-3 text-muted-foreground" /></TooltipTrigger>
+                  <TooltipTrigger><Info class="ml-1 h-3 w-3 text-muted-foreground/70" /></TooltipTrigger>
                   <TooltipContent>数据来源: ads_BudgetMonitoring</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -368,13 +442,13 @@ watch(activeTab, () => {
         </div>
 
         <!-- 资产负债表 -->
-        <TabsContent value="balance" class="flex-1 overflow-auto p-6 mt-0">
-          <Table>
+        <TabsContent value="balance" class="flex-1 overflow-auto p-0 mt-0">
+          <Table class="w-full">
             <TableHeader>
               <TableRow class="bg-muted/50">
-                <TableHead class="w-[400px]">项目名称</TableHead>
+                <TableHead class="w-[400px] pl-6">项目名称</TableHead>
                 <TableHead class="text-right">期初金额</TableHead>
-                <TableHead class="text-right">期末余额</TableHead>
+                <TableHead class="text-right pr-6">期末余额</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -384,7 +458,7 @@ watch(activeTab, () => {
                 class="cursor-pointer hover:bg-muted/30"
                 @click="handleRowClick(row)"
               >
-                <TableCell :style="{ paddingLeft: `${row.depth * 24 + 16}px` }">
+                <TableCell :style="{ paddingLeft: `${row.depth * 24 + 24}px` }">
                   <div class="flex items-center gap-2">
                     <button 
                       v-if="row.hasChildren" 
@@ -401,7 +475,7 @@ watch(activeTab, () => {
                 <TableCell class="text-right font-mono text-muted-foreground">
                   ¥ {{ formatNumber(row.beginValue) }}
                 </TableCell>
-                <TableCell class="text-right font-mono" :class="row.level === 1 ? 'text-primary font-semibold' : 'text-muted-foreground'">
+                <TableCell class="text-right font-mono pr-6" :class="row.level === 1 ? 'text-primary font-semibold' : 'text-muted-foreground'">
                   ¥ {{ formatNumber(row.value) }}
                 </TableCell>
               </TableRow>
@@ -410,13 +484,13 @@ watch(activeTab, () => {
         </TabsContent>
 
         <!-- 利润表 -->
-        <TabsContent value="profit" class="flex-1 overflow-auto p-6 mt-0">
-          <Table>
+        <TabsContent value="profit" class="flex-1 overflow-auto p-0 mt-0">
+          <Table class="w-full">
             <TableHeader>
               <TableRow class="bg-muted/50">
-                <TableHead class="w-[400px]">项目名称</TableHead>
+                <TableHead class="w-[400px] pl-6">项目名称</TableHead>
                 <TableHead class="text-right">上期金额</TableHead>
-                <TableHead class="text-right">本期金额</TableHead>
+                <TableHead class="text-right pr-6">本期金额</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -426,7 +500,7 @@ watch(activeTab, () => {
                 class="cursor-pointer hover:bg-muted/30"
                 @click="handleRowClick(row)"
               >
-                <TableCell :style="{ paddingLeft: `${row.depth * 24 + 16}px` }">
+                <TableCell :style="{ paddingLeft: `${row.depth * 24 + 24}px` }">
                   <div class="flex items-center gap-2">
                     <button 
                       v-if="row.hasChildren" 
@@ -443,7 +517,7 @@ watch(activeTab, () => {
                 <TableCell class="text-right font-mono" :class="row.beginValue < 0 ? 'text-red-600' : 'text-muted-foreground'">
                   ¥ {{ formatNumber(row.beginValue) }}
                 </TableCell>
-                <TableCell class="text-right font-mono" :class="[row.level === 1 ? 'text-primary font-semibold' : 'text-muted-foreground', row.value < 0 ? 'text-red-600' : '']">
+                <TableCell class="text-right font-mono pr-6" :class="[row.level === 1 ? 'text-primary font-semibold' : 'text-muted-foreground', row.value < 0 ? 'text-red-600' : '']">
                   ¥ {{ formatNumber(row.value) }}
                 </TableCell>
               </TableRow>
@@ -452,13 +526,13 @@ watch(activeTab, () => {
         </TabsContent>
 
         <!-- 现金流量表 -->
-        <TabsContent value="cash" class="flex-1 overflow-auto p-6 mt-0">
-          <Table>
+        <TabsContent value="cash" class="flex-1 overflow-auto p-0 mt-0">
+          <Table class="w-full">
             <TableHeader>
               <TableRow class="bg-muted/50">
-                <TableHead class="w-[400px]">项目名称</TableHead>
+                <TableHead class="w-[400px] pl-6">项目名称</TableHead>
                 <TableHead class="text-right">上期金额</TableHead>
-                <TableHead class="text-right">本期金额</TableHead>
+                <TableHead class="text-right pr-6">本期金额</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -495,22 +569,41 @@ watch(activeTab, () => {
 
         <!-- 预算监控 -->
         <TabsContent value="budget" class="flex-1 overflow-auto p-6 mt-0">
-          <!-- 状态栏 -->
+          <!-- 状态栏 & 工具栏 -->
           <div class="flex justify-between items-center bg-muted/50 rounded-lg px-4 py-3 mb-6">
             <div class="flex items-center gap-3">
-              <Badge class="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">执行中</Badge>
+              <Badge class="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 font-normal">执行中</Badge>
               <span class="text-sm text-muted-foreground">版本: V2025-03-A</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <template v-if="!isBudgetEditing">
+                <Button variant="outline" size="sm" class="h-8 border-amber-200 text-amber-700 hover:bg-amber-50 hover:text-amber-800" @click="isBudgetEditing = true">
+                  <Pencil class="h-3.5 w-3.5 mr-1" /> 调整预算
+                </Button>
+              </template>
+              <template v-else>
+                <Button variant="ghost" size="sm" class="h-8" @click="isBudgetEditing = false">
+                  取消
+                </Button>
+                <Button size="sm" class="h-8 bg-primary" @click="saveBudget">
+                  <Save class="h-3.5 w-3.5 mr-1" /> 保存生效
+                </Button>
+              </template>
             </div>
           </div>
 
           <!-- 双列布局 -->
           <div class="grid grid-cols-2 gap-6">
             <!-- 阿米巴单元预算 -->
-            <div class="border rounded-lg">
-              <div class="bg-muted/30 px-4 py-3 border-b font-semibold">
-                阿米巴单元预算
+            <div class="border rounded-lg bg-card text-card-foreground shadow-sm">
+              <div class="bg-muted/30 px-4 py-3 border-b font-semibold flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <Users class="h-4 w-4 text-muted-foreground" />
+                  阿米巴单元预算
+                </div>
+                <span class="text-xs text-muted-foreground font-normal">点击查看详情</span>
               </div>
-              <div class="p-4">
+              <div class="p-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -520,15 +613,28 @@ watch(activeTab, () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    <TableRow v-for="row in amebaBudgetData" :key="row.id" class="hover:bg-muted/30">
+                    <TableRow 
+                      v-for="row in amebaBudgetData" 
+                      :key="row.id" 
+                      class="hover:bg-muted/50 cursor-pointer"
+                      @click="!isBudgetEditing && openAmebaDetail(row)"
+                    >
                       <TableCell class="font-medium">{{ row.group }}</TableCell>
                       <TableCell>
                         <div class="space-y-1">
-                          <div class="flex justify-between text-xs">
+                          <div class="flex justify-between text-xs items-center h-5">
                             <span class="font-mono font-semibold">¥{{ formatNumber(row.actual) }}</span>
-                            <span class="text-muted-foreground font-mono">/ {{ formatNumber(row.budget) }}</span>
+                            <!-- 编辑模式下显示输入框 -->
+                            <div v-if="isBudgetEditing" @click.stop>
+                              <Input 
+                                type="number" 
+                                v-model="row.budget" 
+                                class="h-6 w-24 text-right font-mono text-xs px-1"
+                              />
+                            </div>
+                            <span v-else class="text-muted-foreground font-mono">/ {{ formatNumber(row.budget) }}</span>
                           </div>
-                          <Progress :model-value="Math.min(row.percent, 100)" class="h-1.5" :class="getProgressColor(row.percent)" />
+                          <Progress v-if="!isBudgetEditing" :model-value="Math.min(row.percent, 100)" class="h-1.5" :class="getProgressColor(row.percent)" />
                         </div>
                       </TableCell>
                       <TableCell class="text-right font-mono font-bold" :class="getProgressTextColor(row.percent)">
@@ -541,11 +647,15 @@ watch(activeTab, () => {
             </div>
 
             <!-- 财务科目预算 -->
-            <div class="border rounded-lg">
-              <div class="bg-muted/30 px-4 py-3 border-b font-semibold">
-                财务科目预算
+            <div class="border rounded-lg bg-card text-card-foreground shadow-sm">
+              <div class="bg-muted/30 px-4 py-3 border-b font-semibold flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <Folders class="h-4 w-4 text-muted-foreground" />
+                  财务科目预算
+                </div>
+                <span class="text-xs text-muted-foreground font-normal">点击查看详情</span>
               </div>
-              <div class="p-4">
+              <div class="p-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -555,11 +665,16 @@ watch(activeTab, () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    <TableRow v-for="row in companyBudgetData" :key="row.id" class="hover:bg-muted/30">
+                    <TableRow 
+                      v-for="row in companyBudgetData" 
+                      :key="row.id" 
+                      class="hover:bg-muted/50 cursor-pointer"
+                      @click="openSubjectDetail(row)"
+                    >
                       <TableCell class="font-medium">{{ row.subject }}</TableCell>
                       <TableCell>
                         <div class="space-y-1">
-                          <div class="flex justify-between text-xs">
+                          <div class="flex justify-between text-xs items-center h-5">
                             <span class="font-mono font-semibold">¥{{ formatNumber(row.actual) }}</span>
                             <span class="text-muted-foreground font-mono">/ {{ formatNumber(row.budget) }}</span>
                           </div>
@@ -580,41 +695,161 @@ watch(activeTab, () => {
     </div>
   </div>
 
-  <!-- 明细弹窗 -->
+  <!-- 明细弹窗 (Balance/Profit/Cash) -->
   <Dialog v-model:open="detailDialogOpen">
-    <DialogContent class="max-w-4xl w-full">
-      <DialogHeader>
+    <DialogContent class="sm:max-w-[90vw] w-fit min-w-[800px] max-h-[85vh] overflow-hidden flex flex-col p-0">
+      <DialogHeader class="px-6 py-4 border-b shrink-0">
         <DialogTitle>📄 {{ detailData?.name }} - 明细账簿</DialogTitle>
         <DialogDescription>查看科目的明细记录和账簿信息</DialogDescription>
       </DialogHeader>
-      <div v-if="detailData">
-        <div class="bg-muted/50 rounded-lg px-4 py-3 mb-4 flex justify-between items-center">
-          <span class="text-sm text-muted-foreground">当前余额</span>
-          <span class="font-mono font-bold text-lg">¥ {{ formatNumber(detailData.value) }}</span>
+      
+      <div v-if="detailData" class="flex-1 overflow-y-auto p-6">
+        <div class="bg-muted/30 border rounded-lg px-6 py-4 mb-6 flex justify-between items-center shadow-sm shrink-0">
+          <div class="flex flex-col gap-1">
+            <span class="text-sm text-muted-foreground">当前科目余额</span>
+            <span class="text-xs text-muted-foreground">截至 {{ selectedYear }}-{{ selectedMonth === 'all' ? '12' : selectedMonth }}</span>
+          </div>
+          <div class="text-right">
+            <span class="font-mono font-bold text-2xl tracking-tight">¥ {{ formatNumber(detailData.value) }}</span>
+          </div>
         </div>
+
+        <div class="rounded-md border overflow-x-auto relative">
+          <Table>
+            <TableHeader class="bg-muted/90 sticky top-0 z-10 backdrop-blur-sm">
+              <TableRow>
+                <TableHead class="w-[120px]">日期</TableHead>
+                <TableHead class="w-[120px]">凭证号</TableHead>
+                <TableHead class="min-w-[200px]">摘要</TableHead>
+                <TableHead class="w-[100px]">类型</TableHead>
+                <TableHead class="text-right w-[150px]">借方</TableHead>
+                <TableHead class="text-right w-[150px]">贷方</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow v-for="d in detailData.details" :key="d.id">
+                <TableCell class="font-mono text-sm">{{ d.date }}</TableCell>
+                <TableCell class="font-mono text-sm">{{ d.docNo }}</TableCell>
+                <TableCell class="text-sm">{{ d.summary }}</TableCell>
+                <TableCell>
+                  <Badge :variant="d.type === '收款单' ? 'default' : 'secondary'" class="text-xs font-normal">
+                    {{ d.type }}
+                  </Badge>
+                </TableCell>
+                <TableCell class="text-right font-mono">{{ d.debit > 0 ? formatNumber(d.debit) : '-' }}</TableCell>
+                <TableCell class="text-right font-mono">{{ d.credit > 0 ? formatNumber(d.credit) : '-' }}</TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+    </DialogContent>
+  </Dialog>
+
+  <!-- Modal: Ameba Details -->
+  <Dialog v-model:open="amebaDetailVisible">
+    <DialogContent class="sm:max-w-[700px] w-full p-0 overflow-hidden flex flex-col max-h-[80vh]">
+      <DialogHeader class="px-6 py-4 border-b shrink-0">
+        <DialogTitle class="flex items-center gap-2">
+          <Users class="h-5 w-5 text-muted-foreground" />
+          {{ selectedAmeba?.group }} - 预算执行详情
+        </DialogTitle>
+      </DialogHeader>
+      <div class="flex-1 overflow-y-auto p-0">
         <Table>
-          <TableHeader>
+          <TableHeader class="bg-muted/50 sticky top-0 z-10">
             <TableRow>
-              <TableHead>日期</TableHead>
-              <TableHead>凭证号</TableHead>
-              <TableHead>摘要</TableHead>
-              <TableHead>类型</TableHead>
-              <TableHead class="text-right">借方</TableHead>
-              <TableHead class="text-right">贷方</TableHead>
+              <TableHead>费用科目</TableHead>
+              <TableHead class="text-right">实际支出</TableHead>
+              <TableHead class="w-[200px]">执行进度</TableHead>
+              <TableHead class="w-[50px]"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            <TableRow v-for="d in detailData.details" :key="d.id">
-              <TableCell>{{ d.date }}</TableCell>
-              <TableCell>{{ d.docNo }}</TableCell>
-              <TableCell>{{ d.summary }}</TableCell>
+            <TableRow 
+              v-for="row in amebaDetailData" 
+              :key="row.id" 
+              class="cursor-pointer hover:bg-muted/50"
+              @click="openExpenseDetail(selectedAmeba?.group, row.subject)"
+            >
+              <TableCell>{{ row.subject }}</TableCell>
+              <TableCell class="text-right font-mono font-bold">¥ {{ formatNumber(row.actual) }}</TableCell>
               <TableCell>
-                <Badge :variant="d.type === '收款单' ? 'default' : 'secondary'" class="text-xs">
-                  {{ d.type }}
-                </Badge>
+                <Progress :model-value="Math.min(row.percent, 100)" class="h-2" :class="getProgressColor(row.percent)" />
               </TableCell>
-              <TableCell class="text-right font-mono">{{ d.debit > 0 ? formatNumber(d.debit) : '-' }}</TableCell>
-              <TableCell class="text-right font-mono">{{ d.credit > 0 ? formatNumber(d.credit) : '-' }}</TableCell>
+              <TableCell>
+                <ChevronRight class="h-4 w-4 text-muted-foreground/50" />
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </div>
+    </DialogContent>
+  </Dialog>
+
+  <!-- Modal: Subject Details -->
+  <Dialog v-model:open="subjectDetailVisible">
+    <DialogContent class="sm:max-w-[700px] w-full p-0 overflow-hidden flex flex-col max-h-[80vh]">
+      <DialogHeader class="px-6 py-4 border-b shrink-0">
+        <DialogTitle class="flex items-center gap-2">
+          <Folders class="h-5 w-5 text-muted-foreground" />
+          {{ selectedSubject?.subject }} - 部门消耗详情
+        </DialogTitle>
+      </DialogHeader>
+      <div class="flex-1 overflow-y-auto p-0">
+        <Table>
+          <TableHeader class="bg-muted/50 sticky top-0 z-10">
+            <TableRow>
+              <TableHead>部门名称</TableHead>
+              <TableHead class="text-right">实际支出</TableHead>
+              <TableHead class="w-[200px]">执行进度</TableHead>
+              <TableHead class="w-[50px]"></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow 
+              v-for="row in subjectDetailData" 
+              :key="row.dept" 
+              class="cursor-pointer hover:bg-muted/50"
+              @click="openExpenseDetail(row.dept, selectedSubject?.subject)"
+            >
+              <TableCell>{{ row.dept }}</TableCell>
+              <TableCell class="text-right font-mono font-bold">¥ {{ formatNumber(row.value) }}</TableCell>
+              <TableCell>
+                <Progress :model-value="Math.min(row.percent, 100)" class="h-2" :class="getProgressColor(row.percent)" />
+              </TableCell>
+              <TableCell>
+                <ChevronRight class="h-4 w-4 text-muted-foreground/50" />
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </div>
+    </DialogContent>
+  </Dialog>
+
+  <!-- Modal: Expense Details (Final Drilldown) -->
+  <Dialog v-model:open="expenseDetailVisible">
+    <DialogContent class="sm:max-w-[700px] w-full p-0 overflow-hidden flex flex-col max-h-[80vh]">
+      <DialogHeader class="px-6 py-4 border-b shrink-0">
+        <DialogTitle>📄 {{ expenseDetailTitle }}</DialogTitle>
+      </DialogHeader>
+      <div class="flex-1 overflow-y-auto p-0">
+        <Table>
+          <TableHeader class="bg-muted/50 sticky top-0 z-10">
+            <TableRow>
+              <TableHead>日期</TableHead>
+              <TableHead>摘要</TableHead>
+              <TableHead>报销人</TableHead>
+              <TableHead class="text-right">金额</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow v-for="row in expenseDetailData" :key="row.id" class="hover:bg-muted/30">
+              <TableCell class="font-mono text-sm">{{ row.date }}</TableCell>
+              <TableCell class="text-sm">{{ row.desc }}</TableCell>
+              <TableCell>{{ row.user }}</TableCell>
+              <TableCell class="text-right font-mono">¥ {{ formatNumber(row.amount) }}</TableCell>
             </TableRow>
           </TableBody>
         </Table>
