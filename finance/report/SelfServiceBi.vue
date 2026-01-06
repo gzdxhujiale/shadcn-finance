@@ -1,0 +1,1206 @@
+<script setup>
+  import { ref, reactive, onMounted, watch, computed } from 'vue'
+  import { 
+    IconCalendar, IconUser, IconApps, IconFile, 
+    IconBarChart, IconOrderedList, IconSettings,
+    IconDragDotVertical, IconClose, IconRefresh,
+    IconCaretDown
+  } from '@arco-design/web-vue/es/icon'
+  import * as echarts from 'echarts'
+  
+  // 假设项目中已安装这些依赖
+  import * as aq from 'arquero'
+  import { createGrid, ModuleRegistry, AllCommunityModule } from 'ag-grid-community'
+  import 'ag-grid-community/styles/ag-grid.css'
+  import 'ag-grid-community/styles/ag-theme-alpine.css'
+  
+  // 注册 AG Grid 模块
+  ModuleRegistry.registerModules([AllCommunityModule])
+  
+  // 引入同目录下的数据文件 (请确保 ecommerce_data.js 使用 export const ECOMMERCE_DATA = ... 导出)
+  import { ECOMMERCE_DATA } from './ecommerce_data.js'
+  
+  // --- 状态管理（使用Pinia） ---
+  import { useBiStore } from '../../../stores/biStore'
+  import { storeToRefs } from 'pinia'
+  const biStore = useBiStore()
+  
+  // 使用storeToRefs保持响应性
+  const { 
+    state, 
+    activeFilters, 
+    expandedFilters,
+    rawData,
+    dimensions,
+    measures,
+    chartTypes,
+    dateAggOptions
+  } = storeToRefs(biStore)
+  
+  const { 
+    initFilter, 
+    removeFilter, 
+    updateDateAggregation,
+    toggleFilterDropdown, 
+    toggleOption, 
+    toggleSelectAll, 
+    updateFilterSelection, 
+    updateMeasureFilter,
+    initializeDataSource,
+    aggregateDate,
+    aggregateData,
+    exportToCSV
+  } = biStore
+  
+  // 初始化数据源（将常量数据加载到 store）
+  const DIMENSIONS = [
+    { key: '日期', type: 'date', icon: IconCalendar, allowAgg: true },
+    { key: '客户', type: 'string', icon: IconUser },
+    { key: '平台', type: 'string', icon: IconApps },
+    { key: '店铺名称', type: 'string', icon: IconFile }
+  ]
+  
+  const MEASURES = [
+    { key: 'GMV', type: 'number', icon: IconBarChart },
+    { key: '订单数', type: 'number', icon: IconOrderedList },
+    { key: '销售件数', type: 'number', icon: IconBarChart },
+    { key: '退款金额', type: 'number', icon: IconBarChart },
+    { key: '退款件数', type: 'number', icon: IconOrderedList },
+    { key: '支付用户数', type: 'number', icon: IconUser },
+    { key: '访客数', type: 'number', icon: IconUser },
+    { key: '浏览量', type: 'number', icon: IconBarChart },
+    { key: '加购次数', type: 'number', icon: IconOrderedList },
+    { key: '收藏次数', type: 'number', icon: IconOrderedList },
+    { key: '商品成本', type: 'number', icon: IconBarChart },
+    { key: '广告费', type: 'number', icon: IconBarChart },
+    { key: '平台费用', type: 'number', icon: IconBarChart },
+    { key: '运费', type: 'number', icon: IconBarChart },
+    { key: '其他费用', type: 'number', icon: IconBarChart },
+    { key: '毛利率', type: 'number', icon: IconBarChart },
+    { key: '净利率', type: 'number', icon: IconBarChart },
+    { key: '退货率', type: 'number', icon: IconBarChart },
+    { key: 'ROI', type: 'number', icon: IconBarChart },
+    { key: '客单价', type: 'number', icon: IconBarChart }
+  ]
+  
+  // 初始化 Store 数据
+  initializeDataSource(ECOMMERCE_DATA, DIMENSIONS, MEASURES)
+
+  // 安全的状态访问器，提供默认值
+  const safeState = computed(() => state.value || {
+    cols: [],
+    rows: [],
+    filters: {},
+    chartType: 'table',
+    colorPalette: 'default'
+  })
+  
+  // DOM 引用
+  const vizContainer = ref(null)
+  let chartInstance = null
+  let gridApi = null
+  let currentChartType = null // 追踪当前图表类型，用于实例复用判断
+  
+  // 拖拽相关（保留组件内部，纯 UI 状态）
+  const draggedField = ref(null)
+
+  // --- 包装函数用于特殊处理 ---
+  const toggleOptionHandler = (fieldKey, option, checked) => {
+    const filter = state.value.filters[fieldKey]
+    if (!filter || filter.fieldType !== 'dim') return
+    
+    const index = filter.selected.indexOf(option)
+    
+    if (checked && index === -1) {
+      filter.selected.push(option)
+    } else if (!checked && index > -1) {
+      filter.selected.splice(index, 1)
+    }
+  }
+
+  const toggleSelectAllHandler = (fieldKey, checked) => {
+    const filter = state.value.filters[fieldKey]
+    if (!filter || filter.fieldType !== 'dim') return
+    
+    if (checked) {
+      filter.selected.splice(0, filter.selected.length, ...filter.options)
+    } else {
+      filter.selected.splice(0)
+    }
+  }
+  
+  // --- 导出功能 ---
+  const exportData = () => {
+    // 准备维度和度量列表
+    const allDims = [...safeState.value.cols, ...safeState.value.rows].filter(f => f.fieldType === 'dim')
+    const metrics = [...safeState.value.cols, ...safeState.value.rows].filter(f => f.fieldType === 'measure')
+    
+    if (allDims.length === 0 && metrics.length === 0) {
+      alert('请先配置维度和度量')
+      return
+    }
+    
+    // 使用 Store 的聚合和导出方法
+    const aggregatedData = aggregateData(aq, allDims, metrics)
+    exportToCSV(aggregatedData, allDims, metrics)
+  }
+  
+  // --- 渲染引擎：图表（支持实例复用）---
+  const renderEChart = (container, aggregatedData, metrics, chartType) => {
+    if (metrics.length === 0) return
+    const { keys, groups } = aggregatedData
+    
+    // 判断是否需要重新创建实例（图表类型改变或实例不存在）
+    const needRecreate = !chartInstance || currentChartType !== chartType
+    
+    if (needRecreate) {
+      // 销毁旧实例
+      if (chartInstance) {
+        chartInstance.dispose()
+        chartInstance = null
+      }
+      
+      // 创建容器和新实例
+      const chartDiv = document.createElement('div')
+      chartDiv.style.width = '100%'
+      chartDiv.style.height = '100%'
+      chartDiv.style.minHeight = '400px'
+      container.appendChild(chartDiv)
+      
+      chartInstance = echarts.init(chartDiv)
+      currentChartType = chartType
+    }
+    
+    const isBar = chartType === 'bar'
+    
+    // 构造 Series
+    const seriesData = metrics.map(m => ({
+      name: m.key,
+      type: isBar ? 'bar' : 'line',
+      data: keys.map(k => groups[k].values[m.key]),
+      smooth: !isBar,
+      areaStyle: chartType === 'area' ? { opacity: 0.5 } : undefined,
+      emphasis: { focus: 'series' }
+    }))
+    
+    const option = {
+      tooltip: { trigger: 'axis', axisPointer: { type: isBar ? 'shadow' : 'line' } },
+      legend: { data: metrics.map(m => m.key), bottom: 0 },
+      grid: { left: '3%', right: '4%', bottom: '15%', top: 20, containLabel: true },
+      xAxis: { 
+        type: 'category', 
+        data: keys, 
+        boundaryGap: isBar,
+        axisLabel: { interval: 0, rotate: keys.length > 8 ? 30 : 0 }
+      },
+      yAxis: { type: 'value' },
+      series: seriesData,
+      animationDuration: needRecreate ? 500 : 300 // 复用时动画更快
+    }
+    
+    // 使用 notMerge 参数确保数据完全更新
+    chartInstance.setOption(option, { notMerge: needRecreate })
+  }
+  
+  // --- 渲染引擎：AG Grid ---
+  const renderAgGrid = (container, aggregatedData, allDims, metrics) => {
+    // 销毁旧实例
+    if (gridApi) { gridApi.destroy(); gridApi = null }
+    if (chartInstance) { chartInstance.dispose(); chartInstance = null }
+  
+    const { keys, groups } = aggregatedData
+    
+    // 区分：列维度 和 行维度
+    const colDims = safeState.value.cols.filter(f => f.fieldType === 'dim')
+    const rowDims = safeState.value.rows.filter(f => f.fieldType === 'dim')
+    
+    // 创建容器
+    const gridDiv = document.createElement('div')
+    gridDiv.id = 'ag-grid-container'
+    gridDiv.className = 'ag-theme-alpine'
+    gridDiv.style.width = '100%'
+    gridDiv.style.height = '100%'
+    container.appendChild(gridDiv)
+  
+    // 场景 A: 简单列表 (没有列维度) -> 直接展示
+    if (colDims.length === 0) {
+      const columnDefs = [
+        ...allDims.map(d => ({ 
+          headerName: d.key, 
+          field: d.key, 
+          pinned: 'left',
+          width: 80,
+          minWidth: 80,
+          maxWidth: 120
+        })),
+        ...metrics.map(m => ({ 
+          headerName: m.key, 
+          field: m.key, 
+          type: 'numericColumn',
+          valueFormatter: p => p.value ? Math.round(p.value).toLocaleString() : '',
+          width: 130,
+          minWidth: 130
+        }))
+      ]
+      const rowData = keys.map(k => {
+        const row = {}
+        allDims.forEach(d => row[d.key] = groups[k].meta[d.key])
+        metrics.forEach(m => row[m.key] = groups[k].values[m.key])
+        return row
+      })
+      
+      gridApi = createGrid(gridDiv, { 
+        columnDefs, 
+        rowData, 
+        defaultColDef: { flex: 1, minWidth: 100, sortable: true, resizable: true },
+        theme: "legacy"
+      })
+      return
+    }
+  
+    // 场景 B: 交叉表 (Pivot Table) (有列维度) -> 需要转换数据结构
+    // 逻辑移植自 renderAgGridCross
+    const colValues = new Set()
+    const rowGroups = {}
+  
+    Object.keys(groups).forEach(key => {
+      const meta = groups[key].meta
+      // 生成列头 Key (e.g., "2023-01 / 淘宝")
+      const colKey = colDims.map(d => meta[d.key]).join(' / ')
+      // 生成行头 Key (e.g., "橘子")
+      const rowKey = rowDims.length > 0 ? rowDims.map(d => meta[d.key]).join(' / ') : '总计'
+      
+      colValues.add(colKey)
+      
+      if (!rowGroups[rowKey]) {
+        rowGroups[rowKey] = { meta: {}, cols: {} }
+        rowDims.forEach(d => rowGroups[rowKey].meta[d.key] = meta[d.key])
+      }
+      rowGroups[rowKey].cols[colKey] = groups[key].values
+    })
+  
+    const sortedColValues = Array.from(colValues).sort()
+    const sortedRowKeys = Object.keys(rowGroups).sort()
+  
+    // 构造 AG Grid Columns
+    const columnDefs = rowDims.map(d => ({ 
+      headerName: d.key, 
+      field: d.key, 
+      pinned: 'left',
+      width: 80, // 4个中文字符宽度
+      minWidth: 80,
+      maxWidth: 120
+    }))
+    
+    sortedColValues.forEach(cv => {
+      if (metrics.length === 1) {
+        columnDefs.push({ 
+          headerName: cv, 
+          field: `${cv}_${metrics[0].key}`,
+          type: 'numericColumn',
+          valueFormatter: p => p.value ? Math.round(p.value).toLocaleString() : '',
+          width: 130,
+          minWidth: 130
+        })
+      } else {
+        columnDefs.push({
+          headerName: cv,
+          children: metrics.map(m => ({
+            headerName: m.key,
+            field: `${cv}_${m.key}`,
+            type: 'numericColumn',
+            valueFormatter: p => p.value ? Math.round(p.value).toLocaleString() : '',
+            width: 130,
+            minWidth: 130
+          }))
+        })
+      }
+    })
+  
+    // 构造 AG Grid Row Data
+    const rowData = sortedRowKeys.map(rowKey => {
+      const row = {}
+      rowDims.forEach(d => row[d.key] = rowGroups[rowKey].meta[d.key])
+      sortedColValues.forEach(colKey => {
+        const colData = rowGroups[rowKey].cols[colKey] || {}
+        metrics.forEach(m => row[`${colKey}_${m.key}`] = colData[m.key] || 0)
+      })
+      return row
+    })
+  
+    gridApi = createGrid(gridDiv, { 
+      columnDefs, 
+      rowData, 
+      defaultColDef: { minWidth: 80, sortable: true, resizable: true },
+      theme: "legacy"
+    })
+  }
+  
+  // --- 渲染入口 ---
+  const renderViz = () => {
+    if (!vizContainer.value) return
+    
+    // 准备维度和度量列表
+    const allDims = [...safeState.value.cols, ...safeState.value.rows].filter(f => f.fieldType === 'dim')
+    const metrics = [...safeState.value.cols, ...safeState.value.rows].filter(f => f.fieldType === 'measure')
+    
+    console.log('渲染函数调用:', { allDims, metrics, state: safeState.value.cols, rows: safeState.value.rows })
+  
+    // 空状态
+    if (allDims.length === 0 && metrics.length === 0) {
+      if (chartInstance) { 
+        chartInstance.dispose()
+        chartInstance = null
+        currentChartType = null
+      }
+      if (gridApi) { 
+        gridApi.destroy()
+        gridApi = null
+      }
+      vizContainer.value.innerHTML = `
+        <div class="empty-state">
+          <span class="empty-icon"><svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 36V42H42V36M6 24V30H42V24M6 12V18H42V12"/></svg></span>
+          <p>将维度和度量拖放到行和列架</p>
+        </div>`
+      return
+    }
+  
+    // 清空容器（只在切换到表格或从表格切换时销毁）
+    const isTable = safeState.value.chartType === 'table'
+    const wasTable = gridApi !== null
+    
+    if (isTable && chartInstance) {
+      chartInstance.dispose()
+      chartInstance = null
+      currentChartType = null
+    }
+    if (!isTable && gridApi) {
+      gridApi.destroy()
+      gridApi = null
+    }
+    if (isTable || wasTable) {
+      vizContainer.value.innerHTML = ''
+    }
+
+    // 1. 使用 Store 的聚合方法
+    const aggregatedData = aggregateData(aq, allDims, metrics)
+    console.log('准备渲染:', { aggregatedData, chartType: safeState.value.chartType })
+
+    // 2. 路由渲染
+    if (safeState.value.chartType === 'table') {
+      renderAgGrid(vizContainer.value, aggregatedData, allDims, metrics)
+    } else if (['bar', 'line', 'area'].includes(safeState.value.chartType)) {
+      renderEChart(vizContainer.value, aggregatedData, metrics, safeState.value.chartType)
+    }
+  }
+  
+  // --- 交互处理 ---
+  const handleDragStart = (field, type) => {
+    draggedField.value = { ...field, fieldType: type }
+  }
+  
+  const handleDrop = (targetShelf) => {
+    if (!draggedField.value) return
+    
+    const field = { 
+      ...draggedField.value, 
+      uid: Date.now(),
+      dateAgg: draggedField.value.key === '日期' ? 'month' : undefined 
+    } 
+    
+    if (targetShelf === 'cols' && state.value) state.value.cols.push(field)
+    if (targetShelf === 'rows' && state.value) state.value.rows.push(field)
+    
+    // 自动创建筛选器（维度和度量都支持）
+    initFilter(field.key, field, rawData.value)
+    
+    draggedField.value = null
+    // watch 会自动触发渲染
+  }
+  
+  const removeField = (shelf, index) => {
+    if (!state.value) return
+    
+    let removedField = null
+    
+    if (shelf === 'cols') {
+      removedField = state.value.cols[index]
+      state.value.cols.splice(index, 1)
+    }
+    if (shelf === 'rows') {
+      removedField = state.value.rows[index]
+      state.value.rows.splice(index, 1)
+    }
+    
+    // 检查该字段是否还在其他架子上，如果没有则移除筛选器
+    if (removedField) {
+      const stillInUse = [...state.value.cols, ...state.value.rows].some(f => f.key === removedField.key)
+      if (!stillInUse) {
+        removeFilter(removedField.key)
+      }
+    }
+    // watch 会自动触发渲染
+  }
+  
+  const handleDateAggChange = (field, newAgg) => {
+    field.dateAgg = newAgg
+    // 更新筛选器中的日期聚合选项
+    if (field.key === '日期') {
+      updateDateAggregation('日期', newAgg, rawData.value)
+    }
+  }
+  
+  // --- 自动渲染：监听状态变化 ---
+  watch(
+    () => [state.value.cols, state.value.rows, state.value.filters, state.value.chartType],
+    () => {
+      renderViz()
+    },
+    { deep: true }
+  )
+  
+  onMounted(() => {
+    // 设置默认布局：列=日期(月聚合)，行=客户、平台、GMV
+    const defaultCols = [
+      { key: '日期', fieldType: 'dim', uid: Date.now() + 1, dateAgg: 'month' }
+    ]
+    
+    const defaultRows = [
+      { key: '客户', fieldType: 'dim', uid: Date.now() + 2 },
+      { key: '平台', fieldType: 'dim', uid: Date.now() + 3 },
+      { key: 'GMV', fieldType: 'measure', uid: Date.now() + 4 }
+    ]
+    
+    if (state.value) {
+      state.value.cols = defaultCols
+      state.value.rows = defaultRows
+    }
+    
+    // 为字段初始化筛选器，传递field对象以正确处理聚合
+    initFilter('日期', defaultCols[0], rawData.value) // 传递日期field对象，包含dateAgg
+    initFilter('客户', defaultRows[0], rawData.value)  
+    initFilter('平台', defaultRows[1], rawData.value)
+    initFilter('GMV', defaultRows[2], rawData.value) // 为GMV度量添加筛选器
+    
+    // watch 会自动触发首次渲染
+    
+    window.addEventListener('resize', () => {
+      chartInstance && chartInstance.resize()
+    })
+  })
+  </script>
+  
+  <template>
+    <div class="bi-container">
+      <!-- 顶部工具栏 -->
+      <header class="bi-header">
+        <div class="brand">
+          <div class="logo-grid">
+            <span class="bg-blue"></span><span class="bg-orange"></span>
+            <span class="bg-red"></span><span class="bg-teal"></span>
+          </div>
+          <span class="title">自助分析 <small>Self-Service BI</small></span>
+        </div>
+        <a-space>
+          <a-button size="small" type="primary" @click="exportData">
+            <template #icon><IconFile /></template> 导出
+          </a-button>
+          <a-button size="small" type="secondary" @click="renderViz">
+            <template #icon><IconRefresh /></template> 刷新
+          </a-button>
+          <a-button size="small" status="danger" @click="() => { if(state.value) { state.value.cols=[]; state.value.rows=[]; activeFilters.value.clear(); state.value.filters={}; } }">
+            <template #icon><IconClose /></template> 清空
+          </a-button>
+        </a-space>
+      </header>
+  
+      <div class="workspace">
+        <!-- 左侧：数据面板 -->
+        <div class="sidebar">
+          <div class="section-title">数据源：电商销售表</div>
+          
+          <!-- 维度列表 -->
+          <div class="field-group">
+            <div class="group-header">维度 (Dimensions)</div>
+            <div 
+              v-for="dim in dimensions" 
+              :key="dim.key"
+              class="field-item dim"
+              draggable="true"
+              @dragstart="handleDragStart(dim, 'dim')"
+            >
+              <component :is="dim.icon" class="field-icon" />
+              <span>{{ dim.key }}</span>
+            </div>
+          </div>
+  
+          <a-divider style="margin: 12px 0" />
+  
+          <!-- 度量列表 -->
+          <div class="field-group">
+            <div class="group-header">度量 (Measures)</div>
+            <div 
+              v-for="measure in measures" 
+              :key="measure.key"
+              class="field-item measure"
+              draggable="true"
+              @dragstart="handleDragStart(measure, 'measure')"
+            >
+              <component :is="measure.icon" class="field-icon" />
+              <span>{{ measure.key }}</span>
+            </div>
+          </div>
+        </div>
+  
+        <!-- 中间：控制卡片 -->
+        <div class="controls-column">
+          <!-- 标记卡 -->
+          <a-card class="control-card" title="标记" size="small" :bordered="true">
+            <template #extra>Automatic</template>
+            <a-select v-model="state.chartType" size="small">
+              <a-option v-for="t in chartTypes" :key="t.value" :value="t.value">{{ t.label }}</a-option>
+            </a-select>
+            
+            <div class="marks-grid">
+              <div class="mark-btn"><IconSettings />颜色</div>
+              <div class="mark-btn"><IconDragDotVertical />大小</div>
+            </div>
+          </a-card>
+  
+          <!-- 筛选器卡 -->
+          <a-card class="control-card flex-1" title="筛选器" size="small" :bordered="true">
+            <div v-if="activeFilters.size === 0" class="empty-filter">拖拽维度至此筛选</div>
+            
+            <div v-else class="filters-container">
+              <div 
+                v-for="fieldKey in Array.from(activeFilters)" 
+                :key="fieldKey"
+                class="filter-item"
+              >
+                <!-- 维度筛选器 -->
+                <template v-if="state.filters[fieldKey]?.fieldType === 'dim'">
+                  <a-dropdown 
+                    :trigger="['click']"
+                    :popup-visible="expandedFilters.has(fieldKey)"
+                    @popup-visible-change="(visible) => toggleFilterDropdown(fieldKey, visible)"
+                  >
+                    <div class="filter-trigger">
+                      <span class="filter-title">{{ fieldKey }}</span>
+                      <div class="filter-status">
+                        <span class="selected-count">
+                          {{ safeState.filters[fieldKey]?.selected?.length || 0 }}/{{ safeState.filters[fieldKey]?.options?.length || 0 }}
+                        </span>
+                        <IconCaretDown 
+                          class="caret-icon" 
+                          :class="{ 'rotated': expandedFilters.has(fieldKey) }"
+                        />
+                      </div>
+                      <a-button 
+                        size="mini" 
+                        type="text" 
+                        @click.stop="removeFilter(fieldKey)"
+                        class="remove-btn"
+                      >
+                        <template #icon><IconClose style="font-size: 10px" /></template>
+                      </a-button>
+                    </div>
+                    
+                    <template #content>
+                      <div class="filter-dropdown">
+                        <!-- 全选选项 -->
+                        <div class="dropdown-item select-all-item">
+                          <a-checkbox 
+                            :model-value="safeState.filters[fieldKey]?.selected?.length === safeState.filters[fieldKey]?.options?.length"
+                            :indeterminate="safeState.filters[fieldKey]?.selected?.length > 0 && safeState.filters[fieldKey]?.selected?.length < safeState.filters[fieldKey]?.options?.length"
+                            @change="(checked) => toggleSelectAllHandler(fieldKey, checked)"
+                          >
+                            全选
+                          </a-checkbox>
+                        </div>
+                        
+                        <div class="dropdown-divider"></div>
+                        
+                        <!-- 具体选项 -->
+                        <div class="dropdown-options">
+                          <div 
+                            v-for="option in safeState.filters[fieldKey]?.options || []" 
+                            :key="option"
+                            class="dropdown-item option-item"
+                          >
+                            <a-checkbox 
+                              :model-value="safeState.filters[fieldKey]?.selected?.includes(option)"
+                              @change="(checked) => toggleOptionHandler(fieldKey, option, checked)"
+                            >
+                              {{ option }}
+                            </a-checkbox>
+                          </div>
+                        </div>
+                      </div>
+                    </template>
+                  </a-dropdown>
+                </template>
+                
+                <!-- 度量筛选器 -->
+                <template v-else-if="state.filters[fieldKey]?.fieldType === 'measure'">
+                  <a-dropdown 
+                    :trigger="['click']"
+                    :popup-visible="expandedFilters.has(fieldKey)"
+                    @popup-visible-change="(visible) => toggleFilterDropdown(fieldKey, visible)"
+                  >
+                    <div class="filter-trigger">
+                      <span class="filter-title">{{ fieldKey }}</span>
+                      <div class="filter-status">
+                        <span class="selected-count">
+                          {{ state.filters[fieldKey]?.operator === 'all' ? '无筛选' : state.filters[fieldKey]?.operator }}
+                        </span>
+                        <IconCaretDown 
+                          class="caret-icon" 
+                          :class="{ 'rotated': expandedFilters.has(fieldKey) }"
+                        />
+                      </div>
+                      <a-button 
+                        size="mini" 
+                        type="text" 
+                        @click.stop="removeFilter(fieldKey)"
+                        class="remove-btn"
+                      >
+                        <template #icon><IconClose style="font-size: 10px" /></template>
+                      </a-button>
+                    </div>
+                    
+                    <template #content>
+                      <div class="filter-dropdown measure-dropdown">
+                        <div class="measure-filter-content">
+                          <div class="filter-operator">
+                            <a-select 
+                              :model-value="state.filters[fieldKey]?.operator || 'all'"
+                              @update:model-value="(op) => updateMeasureFilter(fieldKey, op, state.filters[fieldKey]?.value, state.filters[fieldKey]?.minValue, state.filters[fieldKey]?.maxValue)"
+                              size="small"
+                              style="width: 100%; margin-bottom: 12px;"
+                            >
+                              <a-option value="all">不筛选</a-option>
+                              <a-option value="gt">大于</a-option>
+                              <a-option value="lt">小于</a-option>
+                              <a-option value="eq">等于</a-option>
+                              <a-option value="between">区间</a-option>
+                            </a-select>
+                          </div>
+                          
+                          <!-- 单值输入 -->
+                          <div v-if="['gt', 'lt', 'eq'].includes(state.filters[fieldKey]?.operator)" class="single-value">
+                            <a-input-number 
+                              :model-value="state.filters[fieldKey]?.value"
+                              @update:model-value="(val) => updateMeasureFilter(fieldKey, state.filters[fieldKey]?.operator, val, state.filters[fieldKey]?.minValue, state.filters[fieldKey]?.maxValue)"
+                              size="small"
+                              style="width: 100%;"
+                              placeholder="输入数值"
+                            />
+                          </div>
+                          
+                          <!-- 区间输入 -->
+                          <div v-if="state.filters[fieldKey]?.operator === 'between'" class="range-values">
+                            <a-input-number 
+                              :model-value="state.filters[fieldKey]?.minValue"
+                              @update:model-value="(val) => updateMeasureFilter(fieldKey, 'between', state.filters[fieldKey]?.value, val, state.filters[fieldKey]?.maxValue)"
+                              size="small"
+                              style="width: 100%; margin-bottom: 8px;"
+                              placeholder="最小值"
+                            />
+                            <a-input-number 
+                              :model-value="state.filters[fieldKey]?.maxValue"
+                              @update:model-value="(val) => updateMeasureFilter(fieldKey, 'between', state.filters[fieldKey]?.value, state.filters[fieldKey]?.minValue, val)"
+                              size="small"
+                              style="width: 100%;"
+                              placeholder="最大值"
+                            />
+                          </div>
+                          
+                          <!-- 显示数据范围信息 -->
+                          <div class="range-info">
+                            数据范围: {{ Math.round(state.filters[fieldKey]?.rangeMin || 0).toLocaleString() }} ~ {{ Math.round(state.filters[fieldKey]?.rangeMax || 0).toLocaleString() }}
+                          </div>
+                        </div>
+                      </div>
+                    </template>
+                  </a-dropdown>
+                </template>
+              </div>
+            </div>
+          </a-card>
+        </div>
+  
+        <!-- 右侧：分析画板 -->
+        <div class="canvas-area">
+          <!-- 行列架 -->
+          <div class="shelves">
+            <div class="shelf-row">
+              <div class="shelf-label">列 (Columns)</div>
+              <div 
+                class="shelf-dropzone" 
+                @dragover.prevent 
+                @drop="handleDrop('cols')"
+              >
+                <div 
+                  v-for="(field, idx) in safeState.cols" 
+                  :key="field.uid"
+                  class="field-pill-wrapper"
+                >
+                  <!-- 支持日期聚合下拉菜单 -->
+                  <a-dropdown v-if="field.dateAgg" @select="(val) => handleDateAggChange(field, val)">
+                     <a-tag color="arcoblue" closable @close="removeField('cols', idx)" class="field-pill">
+                       {{ field.key }} 
+                       <span class="agg-tag">({{ dateAggOptions.find(o => o.value === field.dateAgg)?.label }})</span>
+                       <IconCaretDown style="margin-left: 4px; font-size: 10px"/>
+                     </a-tag>
+                     <template #content>
+                       <a-doption v-for="opt in dateAggOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</a-doption>
+                     </template>
+                  </a-dropdown>
+                  
+                  <a-tag v-else 
+                     :color="field.fieldType === 'dim' ? 'arcoblue' : 'green'" 
+                     closable 
+                     @close="removeField('cols', idx)"
+                     class="field-pill"
+                  >
+                    {{ field.key }}
+                  </a-tag>
+                </div>
+              </div>
+            </div>
+            <div class="shelf-row">
+              <div class="shelf-label">行 (Rows)</div>
+              <div 
+                class="shelf-dropzone" 
+                @dragover.prevent 
+                @drop="handleDrop('rows')"
+              >
+                 <div 
+                  v-for="(field, idx) in safeState.rows" 
+                  :key="field.uid"
+                  class="field-pill-wrapper"
+                >
+                  <a-dropdown v-if="field.dateAgg" @select="(val) => handleDateAggChange(field, val)">
+                     <a-tag color="arcoblue" closable @close="removeField('rows', idx)" class="field-pill">
+                       {{ field.key }} 
+                       <span class="agg-tag">({{ dateAggOptions.find(o => o.value === field.dateAgg)?.label }})</span>
+                       <IconCaretDown style="margin-left: 4px; font-size: 10px"/>
+                     </a-tag>
+                     <template #content>
+                       <a-doption v-for="opt in dateAggOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</a-doption>
+                     </template>
+                  </a-dropdown>
+                  
+                  <a-tag v-else 
+                     :color="field.fieldType === 'dim' ? 'arcoblue' : 'green'" 
+                     closable 
+                     @close="removeField('rows', idx)"
+                     class="field-pill"
+                  >
+                    {{ field.key }}
+                  </a-tag>
+                </div>
+              </div>
+            </div>
+          </div>
+  
+          <!-- 图表容器 -->
+          <div class="viz-wrapper">
+            <div ref="vizContainer" class="viz-container">
+              <!-- Initial content handled by renderViz logic -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+  
+  <style scoped>
+  /* 整体布局 */
+  .bi-container {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--color-fill-2);
+    color: var(--color-text-1);
+  }
+  
+  .bi-header {
+    height: 48px;
+    background: var(--color-bg-2);
+    border-bottom: 1px solid var(--color-border-2);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+  }
+  
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  
+  .logo-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 20px;
+    height: 20px;
+    gap: 2px;
+  }
+  .logo-grid span { border-radius: 2px; }
+  .bg-blue { background: #4e79a7; }
+  .bg-orange { background: #f28e2b; }
+  .bg-red { background: #e15759; }
+  .bg-teal { background: #76b7b2; }
+  
+  .title {
+    font-weight: 600;
+    font-size: 16px;
+  }
+  .title small {
+    font-weight: normal;
+    color: var(--color-text-3);
+    font-size: 12px;
+    margin-left: 4px;
+  }
+  
+  .workspace {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+  }
+  
+  /* 侧边栏 */
+  .sidebar {
+    width: 165px; /* 减少1/4：从220px减少到165px */
+    background: var(--color-bg-2);
+    border-right: 1px solid var(--color-border-2);
+    display: flex;
+    flex-direction: column;
+    padding: 12px 0;
+  }
+  
+  .section-title {
+    padding: 0 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text-2);
+    margin-bottom: 12px;
+  }
+  
+  .group-header {
+    padding: 4px 12px;
+    font-size: 11px;
+    color: var(--color-text-3);
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  
+  .field-item {
+    padding: 6px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: grab;
+    transition: background 0.1s;
+    font-size: 13px;
+  }
+  .field-item:hover {
+    background-color: var(--color-fill-2);
+  }
+  .field-item.dim .field-icon { color: rgb(22, 93, 255); }
+  .field-item.measure .field-icon { color: rgb(0, 180, 42); }
+  
+  /* 控制栏 */
+  .controls-column {
+    width: 235px; /* 增加55px：从180px增加到235px */
+    background: var(--color-bg-1);
+    border-right: 1px solid var(--color-border-2);
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .control-card :deep(.arco-card-header) {
+    padding: 8px 12px;
+    height: auto;
+    font-size: 12px;
+  }
+  
+  .marks-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .mark-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-size: 11px;
+    color: var(--color-text-3);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+  }
+  .mark-btn:hover { background: var(--color-fill-2); }
+  
+  .empty-filter {
+    font-size: 12px;
+    color: var(--color-text-4);
+    text-align: center;
+    margin-top: 20px;
+  }
+  
+  .filters-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow-y: auto;
+    padding: 4px 0;
+  }
+  
+  .filter-item {
+    flex-shrink: 0;
+    border: 1px solid var(--color-border-3);
+    border-radius: 6px;
+    background: var(--color-fill-1);
+    overflow: visible;
+    transition: all 0.2s ease;
+    position: relative;
+  }
+  
+  .filter-item:hover {
+    border-color: var(--color-border-2);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  
+  .filter-trigger {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.2s ease;
+    min-height: 40px;
+  }
+  
+  .filter-trigger:hover {
+    background: var(--color-fill-2);
+  }
+  
+  .filter-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-2);
+    flex: 1;
+  }
+  
+  .filter-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .selected-count {
+    font-size: 11px;
+    color: var(--color-text-3);
+    background: var(--color-fill-3);
+    padding: 3px 8px;
+    border-radius: 12px;
+    min-width: 50px;
+    text-align: center;
+  }
+  
+  .caret-icon {
+    font-size: 12px;
+    color: var(--color-text-3);
+    transition: transform 0.2s ease;
+  }
+  
+  .caret-icon.rotated {
+    transform: rotate(180deg);
+  }
+  
+  .remove-btn {
+    opacity: 0.6;
+    transition: opacity 0.2s ease;
+    margin-left: 8px;
+  }
+  
+  .remove-btn:hover {
+    opacity: 1;
+  }
+  
+  .filter-dropdown {
+    min-width: 220px; /* 增加最小宽度以适应新的控制栏宽度 */
+    max-width: 300px;
+    max-height: 300px;
+    overflow-x: hidden; /* 隐藏横向滚动条 */
+    overflow-y: auto; /* 只保留纵向滚动 */
+    padding: 8px 0;
+    background: var(--color-bg-2);
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    word-break: break-all; /* 长文本自动换行 */
+  }
+  
+  .dropdown-item {
+    padding: 8px 16px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    display: flex;
+    align-items: center;
+  }
+  
+  .dropdown-item:hover {
+    background: var(--color-fill-2);
+  }
+  
+  .select-all-item {
+    font-weight: 600;
+  }
+  
+  .dropdown-divider {
+    height: 1px;
+    background: var(--color-border-3);
+    margin: 4px 0;
+  }
+  
+  .dropdown-options {
+    max-height: 200px;
+    overflow-x: hidden; /* 移除横向滚动 */
+    overflow-y: auto; /* 只保留纵向滚动 */
+  }
+  
+  .option-item {
+    font-size: 12px;
+    white-space: nowrap; /* 防止文本换行导致的布局问题 */
+    overflow: hidden;
+    text-overflow: ellipsis; /* 长文本用省略号显示 */
+  }
+  
+  .measure-dropdown {
+    min-width: 280px; /* 增加宽度以充分利用空间 */
+    max-width: 320px;
+  }
+  
+  .measure-filter-content {
+    padding: 12px;
+  }
+  
+  .range-values {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .range-info {
+    font-size: 10px;
+    color: var(--color-text-4);
+    margin-top: 8px;
+    padding: 6px 8px;
+    background: var(--color-fill-2);
+    border-radius: 4px;
+    text-align: center;
+  }
+  
+  .select-all-btn {
+    font-size: 10px;
+    padding: 2px 4px;
+    height: auto;
+  }
+  
+  /* 画板区域 */
+  .canvas-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--color-bg-1);
+  }
+  
+  .shelves {
+    background: var(--color-bg-2);
+    border-bottom: 1px solid var(--color-border-2);
+    padding: 8px 12px;
+  }
+  
+  .shelf-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 6px;
+    min-height: 32px;
+  }
+  
+  .shelf-label {
+    width: 60px;
+    text-align: right;
+    font-size: 12px;
+    color: var(--color-text-3);
+    margin-right: 12px;
+  }
+  
+  .shelf-dropzone {
+    flex: 1;
+    border: 1px solid var(--color-border-2);
+    border-radius: 4px;
+    min-height: 32px;
+    background: var(--color-bg-1);
+    display: flex;
+    align-items: center;
+    padding: 2px 4px;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  
+  .field-pill-wrapper {
+    margin-right: 4px;
+    margin-bottom: 2px;
+  }
+  
+  .field-pill {
+    border-radius: 12px;
+    cursor: default;
+  }
+  
+  .agg-tag {
+    font-size: 10px;
+    opacity: 0.8;
+    margin-left: 2px;
+  }
+  
+  .viz-wrapper {
+    flex: 1;
+    padding: 24px;
+    background: var(--color-fill-2);
+    overflow: hidden;
+  }
+  
+  .viz-container {
+    width: 100%;
+    height: 100%;
+    background: var(--color-bg-2);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    border-radius: 4px;
+    border: 1px solid var(--color-border-2);
+    position: relative;
+  }
+  
+  .empty-state {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-4);
+  }
+  .empty-icon {
+    font-size: 48px;
+    color: var(--color-fill-4);
+    margin-bottom: 16px;
+  }
+  </style>
