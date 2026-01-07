@@ -32,7 +32,7 @@ export const sidebarConfig = {
     user: {
         name: '家乐',
         email: '2063994160@qq.com',
-        avatar: '/avatars/shadcn.jpg',
+        avatar: '',
     },
 
     // 团队列表（包含权限配置）
