@@ -448,14 +448,14 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <Teleport to="#breadcrumb-actions" defer>
-    <DateRangeFilter 
-      v-model="dateRange" 
-      @apply="onDateRangeApply" 
-    />
-  </Teleport>
-
   <div class="h-[calc(100vh-4rem)] overflow-hidden bg-background">
+    <Teleport to="#breadcrumb-actions" defer>
+      <DateRangeFilter 
+        v-model="dateRange" 
+        @apply="onDateRangeApply" 
+      />
+    </Teleport>
+
     <!-- 1. 列表视图 -->
     <div v-if="!selectedAmeba" class="h-full p-6 overflow-auto space-y-4">
       

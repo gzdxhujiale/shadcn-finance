@@ -20,7 +20,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+
 import {
   Table,
   TableBody,
@@ -138,14 +138,7 @@ const refreshData = () => {
   }, 600)
 }
 
-const getAvatarColor = (name) => {
-  const colors = ['bg-blue-500', 'bg-purple-500', 'bg-orange-500', 'bg-green-500', 'bg-red-500', 'bg-gray-500']
-  let hash = 0
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash)
-  }
-  return colors[Math.abs(hash) % colors.length]
-}
+
 
 const getRoleColor = (role) => {
   if (role.includes('管理员')) return 'bg-blue-100 text-blue-700 border-blue-200'
@@ -240,29 +233,29 @@ const removeRole = (role) => {
 </script>
 
 <template>
-  <!-- 统计数据 Teleport 到面包屑区域 -->
-  <Teleport to="#breadcrumb-actions" defer>
-    <div class="flex items-center gap-2">
-      <div class="text-center">
-        <div class="text-xs text-muted-foreground">总用户数</div>
-        <div class="text-lg font-bold">{{ users.length }}</div>
+  <div class="h-[calc(100vh-4rem)] overflow-hidden flex flex-col">
+    <!-- 统计数据 Teleport 到面包屑区域 -->
+    <Teleport to="#breadcrumb-actions" defer>
+      <div class="flex items-center gap-2">
+        <div class="text-center">
+          <div class="text-xs text-muted-foreground">总用户数</div>
+          <div class="text-lg font-bold">{{ users.length }}</div>
+        </div>
+        <div class="w-px h-6 bg-border"></div>
+        <div class="text-center">
+          <div class="text-xs text-muted-foreground">活跃用户</div>
+          <div class="text-lg font-bold text-emerald-600">{{ activeUserCount }}</div>
+        </div>
+        <div class="w-px h-6 bg-border"></div>
+        <div class="text-center">
+          <div class="text-xs text-muted-foreground">停用账号</div>
+          <div class="text-lg font-bold text-amber-600">{{ disabledUserCount }}</div>
+        </div>
       </div>
-      <div class="w-px h-6 bg-border"></div>
-      <div class="text-center">
-        <div class="text-xs text-muted-foreground">活跃用户</div>
-        <div class="text-lg font-bold text-emerald-600">{{ activeUserCount }}</div>
-      </div>
-      <div class="w-px h-6 bg-border"></div>
-      <div class="text-center">
-        <div class="text-xs text-muted-foreground">停用账号</div>
-        <div class="text-lg font-bold text-amber-600">{{ disabledUserCount }}</div>
-      </div>
-    </div>
-  </Teleport>
-
-  <div class="h-full p-6 flex flex-col">
+    </Teleport>
     <!-- Main Content -->
-    <div class="flex-1 bg-white dark:bg-slate-950 rounded-lg border shadow-sm flex flex-col overflow-hidden">
+    <div class="flex-1 overflow-auto p-6">
+      <div class="bg-white dark:bg-slate-950 rounded-lg border shadow-sm flex flex-col">
       <!-- Toolbar -->
       <div class="p-4 border-b flex flex-wrap items-center gap-4">
         <div class="relative w-72">
@@ -320,7 +313,7 @@ const removeRole = (role) => {
       </div>
 
       <!-- Table -->
-      <div class="flex-1 overflow-auto">
+      <div class="flex-1">
         <Table>
           <TableHeader>
             <TableRow>
@@ -352,17 +345,10 @@ const removeRole = (role) => {
                 />
               </TableCell>
               <TableCell>
-                <div class="flex items-center gap-3">
-                  <Avatar class="h-10 w-10">
-                    <AvatarFallback :class="[getAvatarColor(item.name), 'text-white']">
-                      {{ item.name[0] }}
-                    </AvatarFallback>
-                  </Avatar>
                   <div class="flex flex-col">
                     <span class="font-medium">{{ item.name }}</span>
                     <span class="text-xs text-muted-foreground">{{ item.email }}</span>
                   </div>
-                </div>
               </TableCell>
               <TableCell>
                 <Badge variant="outline" class="font-normal">{{ item.department }}</Badge>
@@ -431,119 +417,143 @@ const removeRole = (role) => {
         </div>
       </div>
     </div>
+    </div>
 
     <!-- Add/Edit Sheet -->
     <Sheet v-model:open="sheetOpen">
-      <SheetContent class="sm:max-w-[480px] flex flex-col gap-0">
-        <SheetHeader class="pb-4 border-b">
+      <SheetContent class="sm:max-w-[480px] flex flex-col gap-0 p-0">
+        <SheetHeader class="px-6 py-4 border-b shrink-0">
           <SheetTitle>{{ sheetType === 'add' ? '新建用户' : '编辑用户' }}</SheetTitle>
           <SheetDescription v-if="sheetType === 'add'">
-            创建新的系统用户账号
+            创建新的系统用户账号，请确保信息的准确性。
           </SheetDescription>
         </SheetHeader>
         
-        <div class="flex-1 py-6 flex flex-col gap-6 overflow-y-auto">
-          <!-- 基本信息 -->
-          <div class="space-y-4">
-            <h3 class="font-semibold text-sm border-l-2 border-primary pl-3">基本信息</h3>
-            
-            <div class="grid grid-cols-2 gap-4">
-              <div class="space-y-2">
-                <label class="text-sm font-medium">姓名 *</label>
-                <div class="relative">
-                  <User class="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input v-model="form.name" placeholder="请输入真实姓名" class="pl-9" />
+        <div class="flex-1 overflow-y-auto px-6 py-6">
+          <div class="flex flex-col gap-6">
+            <!-- 基本信息 -->
+            <div class="space-y-4">
+              <div class="flex items-center gap-2 text-primary font-medium pb-2 border-b">
+                <User class="h-4 w-4" /> 基本权益信息
+              </div>
+              
+              <div class="grid grid-cols-2 gap-4">
+                <div class="space-y-2">
+                  <label class="text-sm font-medium text-muted-foreground">姓名 <span class="text-destructive">*</span></label>
+                  <div class="relative">
+                    <User class="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input v-model="form.name" placeholder="真实姓名" class="pl-9" />
+                  </div>
+                </div>
+                <div class="space-y-2">
+                  <label class="text-sm font-medium text-muted-foreground">用户名 <span class="text-destructive">*</span></label>
+                  <div class="relative">
+                    <Shield class="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input v-model="form.username" placeholder="登录账号" class="pl-9" />
+                  </div>
                 </div>
               </div>
-              <div class="space-y-2">
-                <label class="text-sm font-medium">用户名 *</label>
-                <Input v-model="form.username" placeholder="登录账号" />
-              </div>
-            </div>
-            
-            <div class="space-y-2">
-              <label class="text-sm font-medium">邮箱地址 *</label>
-              <div class="relative">
-                <Mail class="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input v-model="form.email" placeholder="example@company.com" class="pl-9" />
-              </div>
-            </div>
-            
-            <div class="space-y-2">
-              <label class="text-sm font-medium">手机号码</label>
-              <div class="relative">
-                <Phone class="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input v-model="form.phone" placeholder="11位手机号" class="pl-9" />
-              </div>
-            </div>
-          </div>
-
-          <Separator />
-
-          <!-- 组织架构与权限 -->
-          <div class="space-y-4">
-            <h3 class="font-semibold text-sm border-l-2 border-primary pl-3">组织架构与权限</h3>
-            
-            <div class="space-y-2">
-              <label class="text-sm font-medium">所属部门 *</label>
-              <Select v-model="form.department">
-                <SelectTrigger>
-                  <SelectValue placeholder="选择部门" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem v-for="d in DEPT_OPTIONS" :key="d" :value="d">{{ d }}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div class="space-y-2">
-              <label class="text-sm font-medium">角色分配</label>
-              <Select @update:model-value="addRole">
-                <SelectTrigger>
-                  <SelectValue placeholder="选择角色权限" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem v-for="r in ROLE_OPTIONS" :key="r" :value="r">{{ r }}</SelectItem>
-                </SelectContent>
-              </Select>
               
-              <div class="flex flex-wrap gap-2 min-h-[32px]">
-                <Badge 
-                  v-for="role in form.roles" 
-                  :key="role" 
-                  variant="secondary"
-                  class="gap-1 pl-2.5 pr-1 py-1"
-                >
-                  {{ role }}
-                  <X 
-                    class="h-3 w-3 cursor-pointer hover:text-destructive transition-colors" 
-                    @click="removeRole(role)" 
-                  />
-                </Badge>
-                <span v-if="form.roles.length === 0" class="text-sm text-muted-foreground italic">
-                  暂未分配角色
-                </span>
+              <div class="space-y-2">
+                <label class="text-sm font-medium text-muted-foreground">邮箱地址 <span class="text-destructive">*</span></label>
+                <div class="relative">
+                  <Mail class="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input v-model="form.email" placeholder="example@company.com" class="pl-9" />
+                </div>
+              </div>
+              
+              <div class="space-y-2">
+                <label class="text-sm font-medium text-muted-foreground">手机号码</label>
+                <div class="relative">
+                  <Phone class="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input v-model="form.phone" placeholder="11位手机号" class="pl-9" />
+                </div>
               </div>
             </div>
-            
-            <div class="space-y-2">
-              <label class="text-sm font-medium">账号状态</label>
-              <Select v-model="form.status">
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="启用">启用</SelectItem>
-                  <SelectItem value="停用">停用</SelectItem>
-                </SelectContent>
-              </Select>
+
+            <!-- 组织架构与权限 -->
+            <div class="space-y-4">
+              <div class="flex items-center gap-2 text-primary font-medium pb-2 border-b">
+                <Building2 class="h-4 w-4" /> 组织与权限
+              </div>
+              
+              <div class="space-y-2">
+                <label class="text-sm font-medium text-muted-foreground">所属部门 <span class="text-destructive">*</span></label>
+                <Select v-model="form.department">
+                  <SelectTrigger>
+                    <SelectValue placeholder="选择所属部门" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem v-for="d in DEPT_OPTIONS" :key="d" :value="d">{{ d }}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div class="space-y-2">
+                <label class="text-sm font-medium text-muted-foreground">角色分配</label>
+                <Select @update:model-value="addRole">
+                  <SelectTrigger class="bg-muted/30">
+                    <SelectValue placeholder="添加角色..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem v-for="r in ROLE_OPTIONS" :key="r" :value="r">{{ r }}</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                <div class="flex flex-wrap gap-2 pt-2 min-h-[40px] p-2 bg-muted/20 rounded-md border border-dashed">
+                  <span v-if="form.roles.length === 0" class="text-sm text-muted-foreground p-1">
+                    暂未分配任何角色
+                  </span>
+                  <Badge 
+                    v-for="role in form.roles" 
+                    :key="role" 
+                    variant="secondary"
+                    class="gap-1 pl-2.5 pr-1 py-1 h-7"
+                  >
+                    {{ role }}
+                    <div 
+                      class="ml-1 rounded-full p-0.5 hover:bg-destructive hover:text-white cursor-pointer transition-colors"
+                      @click="removeRole(role)"
+                    >
+                      <X class="h-3 w-3" />
+                    </div>
+                  </Badge>
+                </div>
+              </div>
+              
+              <div class="space-y-2">
+                <label class="text-sm font-medium text-muted-foreground">账号状态</label>
+                <div class="flex items-center gap-4">
+                  <div 
+                    class="flex items-center gap-2 cursor-pointer border rounded-md p-3 flex-1 transition-all"
+                    :class="form.status === '启用' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'hover:bg-muted'"
+                    @click="form.status = '启用'"
+                  >
+                    <div class="w-4 h-4 rounded-full border border-current flex items-center justify-center">
+                      <div v-if="form.status === '启用'" class="w-2.5 h-2.5 rounded-full bg-current"></div>
+                    </div>
+                    <span class="text-sm font-medium">启用账号</span>
+                  </div>
+                  
+                  <div 
+                    class="flex items-center gap-2 cursor-pointer border rounded-md p-3 flex-1 transition-all"
+                    :class="form.status === '停用' ? 'border-amber-500 bg-amber-50 text-amber-700' : 'hover:bg-muted'"
+                    @click="form.status = '停用'"
+                  >
+                    <div class="w-4 h-4 rounded-full border border-current flex items-center justify-center">
+                      <div v-if="form.status === '停用'" class="w-2.5 h-2.5 rounded-full bg-current"></div>
+                    </div>
+                    <span class="text-sm font-medium">停用账号</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        <SheetFooter class="pt-4 border-t">
-          <Button variant="outline" @click="closeSheet">取消</Button>
-          <Button @click="handleSave">{{ sheetType === 'add' ? '创建' : '保存' }}</Button>
+        <SheetFooter class="px-6 py-4 border-t shrink-0">
+          <Button variant="outline" @click="closeSheet" class="w-24">取消</Button>
+          <Button @click="handleSave" class="w-24">{{ sheetType === 'add' ? '立即创建' : '保存修改' }}</Button>
         </SheetFooter>
       </SheetContent>
     </Sheet>

@@ -361,14 +361,13 @@ watch(activeTab, () => {
 </script>
 
 <template>
-  <Teleport to="#breadcrumb-actions" defer>
-    <DateRangeFilter 
-      v-model="dateRange" 
-      @apply="onDateRangeApply" 
-    />
-  </Teleport>
-
   <div class="h-[calc(100vh-4rem)] overflow-hidden bg-background">
+    <Teleport to="#breadcrumb-actions" defer>
+      <DateRangeFilter 
+        v-model="dateRange" 
+        @apply="onDateRangeApply" 
+      />
+    </Teleport>
     <div class="h-full p-6 overflow-auto">
       <div class="bg-background rounded-lg border h-full flex flex-col">
       <!-- Tabs -->
@@ -689,8 +688,6 @@ watch(activeTab, () => {
       </Tabs>
     </div>
     </div>
-  </div>
-
   <!-- 明细弹窗 (Balance/Profit/Cash) -->
   <Dialog v-model:open="detailDialogOpen">
     <DialogContent class="sm:max-w-[90vw] w-fit min-w-[800px] max-h-[85vh] overflow-hidden flex flex-col p-0">
@@ -750,6 +747,7 @@ watch(activeTab, () => {
           <Users class="h-5 w-5 text-muted-foreground" />
           {{ selectedAmeba?.group }} - 预算执行详情
         </DialogTitle>
+        <DialogDescription>查看该阿米巴单元的详细预算执行数据</DialogDescription>
       </DialogHeader>
       <div class="flex-1 overflow-y-auto p-0">
         <Table>
@@ -791,6 +789,7 @@ watch(activeTab, () => {
           <Folders class="h-5 w-5 text-muted-foreground" />
           {{ selectedSubject?.subject }} - 部门消耗详情
         </DialogTitle>
+        <DialogDescription>查看该财务科目的部门消耗明细</DialogDescription>
       </DialogHeader>
       <div class="flex-1 overflow-y-auto p-0">
         <Table>
@@ -829,6 +828,7 @@ watch(activeTab, () => {
     <DialogContent class="sm:max-w-[700px] w-full p-0 overflow-hidden flex flex-col max-h-[80vh]">
       <DialogHeader class="px-6 py-4 border-b shrink-0">
         <DialogTitle>📄 {{ expenseDetailTitle }}</DialogTitle>
+        <DialogDescription>查看具体的费用报销明细记录</DialogDescription>
       </DialogHeader>
       <div class="flex-1 overflow-y-auto p-0">
         <Table>
@@ -852,6 +852,7 @@ watch(activeTab, () => {
       </div>
     </DialogContent>
   </Dialog>
+  </div>
 </template>
 
 <style scoped>

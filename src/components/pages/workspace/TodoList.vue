@@ -241,27 +241,27 @@ const toggleOption = (key, option, isChecked) => {
 </script>
 
 <template>
-  <!-- 统计数据 Teleport -->
-  <Teleport to="#breadcrumb-actions" defer v-if="view === 'list'">
-    <div class="flex items-center gap-2">
-      <div class="text-center">
-        <div class="text-[10px] text-muted-foreground uppercase">总任务</div>
-        <div class="text-sm font-bold leading-none">{{ stats.total }}</div>
-      </div>
-      <div class="w-px h-6 bg-border"></div>
-      <div class="text-center">
-        <div class="text-[10px] text-muted-foreground uppercase">待上传</div>
-        <div class="text-sm font-bold text-amber-600 leading-none">{{ stats.pending }}</div>
-      </div>
-      <div class="w-px h-6 bg-border"></div>
-      <div class="text-center">
-        <div class="text-[10px] text-muted-foreground uppercase">已完成</div>
-        <div class="text-sm font-bold text-emerald-600 leading-none">{{ stats.done }}</div>
-      </div>
-    </div>
-  </Teleport>
-
   <div class="h-full">
+    <!-- 统计数据 Teleport -->
+    <Teleport to="#breadcrumb-actions" defer v-if="view === 'list'">
+      <div class="flex items-center gap-2">
+        <div class="text-center">
+          <div class="text-[10px] text-muted-foreground uppercase">总任务</div>
+          <div class="text-sm font-bold leading-none">{{ stats.total }}</div>
+        </div>
+        <div class="w-px h-6 bg-border"></div>
+        <div class="text-center">
+          <div class="text-[10px] text-muted-foreground uppercase">待上传</div>
+          <div class="text-sm font-bold text-amber-600 leading-none">{{ stats.pending }}</div>
+        </div>
+        <div class="w-px h-6 bg-border"></div>
+        <div class="text-center">
+          <div class="text-[10px] text-muted-foreground uppercase">已完成</div>
+          <div class="text-sm font-bold text-emerald-600 leading-none">{{ stats.done }}</div>
+        </div>
+      </div>
+    </Teleport>
+
     <transition name="fade" mode="out-in">
       <!-- 列表视图 -->
       <div v-if="view === 'list'" key="list" class="h-full">

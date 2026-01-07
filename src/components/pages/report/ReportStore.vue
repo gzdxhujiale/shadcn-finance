@@ -831,14 +831,13 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <Teleport to="#breadcrumb-actions" defer>
-    <DateRangeFilter 
-      v-model="dateRange" 
-      @apply="onDateRangeApply" 
-    />
-  </Teleport>
-
   <div class="h-[calc(100vh-4rem)] overflow-hidden bg-background">
+    <Teleport to="#breadcrumb-actions" defer>
+      <DateRangeFilter 
+        v-model="dateRange" 
+        @apply="onDateRangeApply" 
+      />
+    </Teleport>
     <transition name="fade" mode="out-in">
       <!-- 店铺列表视图 -->
       <div v-if="!currentStore" key="list" class="h-full p-6 overflow-auto space-y-4">
@@ -1190,8 +1189,6 @@ onUnmounted(() => {
         </div>
       </div>
     </transition>
-  </div>
-
   <!-- 指标详情弹窗 -->
   <Dialog v-model:open="metricDialogOpen">
     <DialogContent class="max-w-md">
@@ -1285,6 +1282,7 @@ onUnmounted(() => {
       </div>
     </DialogContent>
   </Dialog>
+  </div>
 </template>
 
 <style scoped>

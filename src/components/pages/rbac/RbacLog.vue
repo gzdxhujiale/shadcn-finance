@@ -234,29 +234,29 @@ const mockJson = (log) => {
 </script>
 
 <template>
-  <!-- 统计数据 Teleport 到面包屑区域 -->
-  <Teleport to="#breadcrumb-actions" defer>
-    <div class="flex items-center gap-2">
-      <div class="text-center">
-        <div class="text-xs text-muted-foreground">总日志数</div>
-        <div class="text-lg font-bold">{{ statsData[0].value }}</div>
+  <div class="h-[calc(100vh-4rem)] overflow-hidden flex flex-col">
+    <!-- 统计数据 Teleport 到面包屑区域 -->
+    <Teleport to="#breadcrumb-actions" defer>
+      <div class="flex items-center gap-2">
+        <div class="text-center">
+          <div class="text-xs text-muted-foreground">总日志数</div>
+          <div class="text-lg font-bold">{{ statsData[0].value }}</div>
+        </div>
+        <div class="w-px h-6 bg-border"></div>
+        <div class="text-center">
+          <div class="text-xs text-muted-foreground">敏感操作</div>
+          <div class="text-lg font-bold text-amber-600">{{ statsData[1].value }}</div>
+        </div>
+        <div class="w-px h-6 bg-border"></div>
+        <div class="text-center">
+          <div class="text-xs text-muted-foreground">失败记录</div>
+          <div class="text-lg font-bold text-red-600">{{ statsData[2].value }}</div>
+        </div>
       </div>
-      <div class="w-px h-6 bg-border"></div>
-      <div class="text-center">
-        <div class="text-xs text-muted-foreground">敏感操作</div>
-        <div class="text-lg font-bold text-amber-600">{{ statsData[1].value }}</div>
-      </div>
-      <div class="w-px h-6 bg-border"></div>
-      <div class="text-center">
-        <div class="text-xs text-muted-foreground">失败记录</div>
-        <div class="text-lg font-bold text-red-600">{{ statsData[2].value }}</div>
-      </div>
-    </div>
-  </Teleport>
-
-  <div class="h-full p-6 flex flex-col">
+    </Teleport>
     <!-- Main Content -->
-    <div class="flex-1 bg-white dark:bg-slate-950 rounded-lg border shadow-sm flex flex-col overflow-hidden">
+    <div class="flex-1 overflow-auto p-6">
+      <div class="bg-white dark:bg-slate-950 rounded-lg border shadow-sm flex flex-col">
       <!-- Filters -->
       <div class="p-4 border-b flex flex-wrap items-center gap-4">
         <div class="relative w-64">
@@ -309,7 +309,7 @@ const mockJson = (log) => {
       </div>
 
       <!-- Table -->
-      <div class="flex-1 overflow-auto">
+      <div class="flex-1">
         <Table>
           <TableHeader>
             <TableRow>
@@ -411,67 +411,70 @@ const mockJson = (log) => {
         </div>
       </div>
     </div>
+    </div>
 
     <!-- Detail Sheet -->
     <Sheet v-model:open="sheetOpen">
-      <SheetContent class="sm:max-w-[500px] flex flex-col gap-0">
-        <SheetHeader class="pb-4 border-b">
+      <SheetContent class="sm:max-w-[500px] flex flex-col gap-0 p-0">
+        <SheetHeader class="px-6 py-4 border-b shrink-0">
           <SheetTitle>
             日志详情 
             <span class="font-mono text-sm text-muted-foreground ml-2">#{{ currentLog?.id }}</span>
           </SheetTitle>
         </SheetHeader>
         
-        <div v-if="currentLog" class="flex-1 py-6 flex flex-col gap-6 overflow-y-auto">
+        <div v-if="currentLog" class="flex-1 px-6 py-6 flex flex-col gap-6 overflow-y-auto">
           <!-- Status Banner -->
           <div 
-            class="p-4 rounded-lg flex items-center gap-4"
-            :class="currentLog.status === '成功' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'"
+            class="p-5 rounded-lg flex items-center gap-4 border shadow-sm"
+            :class="currentLog.status === '成功' ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-red-50 border-red-100 text-red-700'"
           >
-            <div class="p-2 rounded-full" :class="currentLog.status === '成功' ? 'bg-emerald-100' : 'bg-red-100'">
+            <div class="p-2 rounded-full shrink-0 shadow-sm" :class="currentLog.status === '成功' ? 'bg-emerald-100' : 'bg-red-100'">
               <CheckCircle v-if="currentLog.status === '成功'" class="h-6 w-6" />
               <XCircle v-else class="h-6 w-6" />
             </div>
             <div>
-              <h3 class="font-bold text-lg">执行{{ currentLog.status }}</h3>
-              <p class="text-sm opacity-80">{{ currentLog.time }}</p>
+              <h3 class="font-bold text-lg tracking-tight">执行{{ currentLog.status }}</h3>
+              <p class="text-xs opacity-80 mt-1 font-mono uppercase tracking-wide">{{ currentLog.time }}</p>
             </div>
           </div>
 
           <!-- Basic Info -->
           <div class="space-y-4">
             <h3 class="font-semibold text-sm border-l-2 border-primary pl-3">基础信息</h3>
-            <div class="grid grid-cols-1 gap-3 text-sm p-4 bg-muted/30 rounded-lg border">
-              <div class="grid grid-cols-3 items-center gap-2">
-                <span class="text-muted-foreground">操作用户</span>
+            <div class="grid grid-cols-1 gap-3 text-sm p-5 bg-muted/30 rounded-xl border">
+              <div class="grid grid-cols-3 items-center gap-4">
+                <span class="text-muted-foreground text-right">操作用户</span>
                 <div class="col-span-2 flex items-center gap-2">
-                  <Avatar class="h-6 w-6">
-                    <AvatarFallback class="text-xs">{{ currentLog.user[0] }}</AvatarFallback>
+                  <Avatar class="h-6 w-6 border">
+                    <AvatarFallback class="text-xs bg-primary/10 text-primary">{{ currentLog.user[0] }}</AvatarFallback>
                   </Avatar>
                   <span class="font-medium">{{ currentLog.user }}</span>
-                  <span class="text-muted-foreground">({{ currentLog.role }})</span>
+                  <span class="text-muted-foreground text-xs bg-background px-2 py-0.5 rounded border">
+                    {{ currentLog.role }}
+                  </span>
                 </div>
               </div>
-              <div class="grid grid-cols-3 items-center gap-2">
-                <span class="text-muted-foreground">所属模块</span>
-                <span class="col-span-2">{{ currentLog.module }}</span>
+              <div class="grid grid-cols-3 items-center gap-4">
+                <span class="text-muted-foreground text-right">所属模块</span>
+                <span class="col-span-2 font-medium">{{ currentLog.module }}</span>
               </div>
-              <div class="grid grid-cols-3 items-center gap-2">
-                <span class="text-muted-foreground">操作类型</span>
+              <div class="grid grid-cols-3 items-center gap-4">
+                <span class="text-muted-foreground text-right">操作类型</span>
                 <div class="col-span-2">
                   <span 
-                    class="inline-flex px-2 py-0.5 rounded text-xs border"
+                    class="inline-flex px-2.5 py-0.5 rounded-md text-xs font-medium border shadow-sm"
                     :class="getTypeColor(currentLog.type)"
                   >
                     {{ getTypeLabel(currentLog.type) }}
                   </span>
                 </div>
               </div>
-              <div class="grid grid-cols-3 items-center gap-2">
-                <span class="text-muted-foreground">来源 IP</span>
-                <div class="col-span-2">
-                  <span class="font-mono">{{ currentLog.ip }}</span>
-                  <span class="text-muted-foreground text-xs ml-2">(局域网)</span>
+              <div class="grid grid-cols-3 items-center gap-4">
+                <span class="text-muted-foreground text-right">来源 IP</span>
+                <div class="col-span-2 flex items-center gap-2">
+                  <span class="font-mono bg-background px-2 py-0.5 rounded border">{{ currentLog.ip }}</span>
+                  <span class="text-muted-foreground text-xs">(局域网)</span>
                 </div>
               </div>
             </div>
@@ -481,10 +484,10 @@ const mockJson = (log) => {
 
           <!-- Request Details -->
           <div class="space-y-4">
-            <h3 class="font-semibold text-sm border-l-2 border-primary pl-3">请求详情</h3>
-            <div class="bg-slate-900 text-slate-100 p-4 rounded-lg relative">
-              <div class="absolute top-2 right-3 text-xs text-slate-500 uppercase">Request Params</div>
-              <pre class="text-xs font-mono whitespace-pre-wrap">{{ mockJson(currentLog) }}</pre>
+            <h3 class="font-semibold text-sm border-l-2 border-primary pl-3">请求参数</h3>
+            <div class="bg-zinc-950 text-zinc-100 p-4 rounded-xl relative shadow-inner overflow-hidden group">
+              <div class="absolute top-2 right-3 text-[10px] text-zinc-500 font-mono tracking-widest uppercase opacity-50">JSON Payload</div>
+              <pre class="text-xs font-mono whitespace-pre-wrap leading-relaxed opacity-90 group-hover:opacity-100 transition-opacity">{{ mockJson(currentLog) }}</pre>
             </div>
           </div>
 
@@ -493,7 +496,7 @@ const mockJson = (log) => {
           <!-- Description -->
           <div class="space-y-4">
             <h3 class="font-semibold text-sm border-l-2 border-primary pl-3">业务描述</h3>
-            <p class="text-sm text-muted-foreground p-4 bg-muted/30 rounded-lg">
+            <p class="text-sm text-foreground/80 leading-relaxed p-4 bg-muted/30 rounded-lg border border-l-4 border-l-primary/20">
               {{ currentLog.detail }}
             </p>
           </div>

@@ -426,18 +426,17 @@ const handleDelete = (id) => {
 </script>
 
 <template>
-  <!-- Teleport 主 Tabs 到面包屑区域 -->
-  <Teleport to="#breadcrumb-actions" defer>
-    <Tabs v-model:model-value="mainTab" class="w-auto">
-      <TabsList>
-        <TabsTrigger value="dimension">维度数据管理</TabsTrigger>
-        <TabsTrigger value="online">线上账单配置</TabsTrigger>
-        <TabsTrigger value="offline">线下账单配置</TabsTrigger>
-      </TabsList>
-    </Tabs>
-  </Teleport>
-
-  <div class="h-full flex flex-col">
+  <div class="h-[calc(100vh-4rem)] overflow-hidden flex flex-col">
+    <!-- Teleport 主 Tabs 到面包屑区域 -->
+    <Teleport to="#breadcrumb-actions" defer>
+      <Tabs v-model:model-value="mainTab" class="w-auto">
+        <TabsList>
+          <TabsTrigger value="dimension">维度数据管理</TabsTrigger>
+          <TabsTrigger value="online">线上账单配置</TabsTrigger>
+          <TabsTrigger value="offline">线下账单配置</TabsTrigger>
+        </TabsList>
+      </Tabs>
+    </Teleport>
     <!-- Main Content -->
     <div class="flex-1 flex flex-col overflow-hidden bg-muted/30">
       <!-- Sub Tabs for Dimension -->

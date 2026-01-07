@@ -56,7 +56,7 @@ const toggleCategory = (cat) => {
 </script>
 
 <template>
-  <div class="h-full flex flex-col p-6">
+  <div class="h-[calc(100vh-4rem)] overflow-hidden flex flex-col p-6">
     <!-- 指标口径视图 -->
     <div class="h-full grid grid-cols-12 gap-6">
       <!-- 左侧导航 -->

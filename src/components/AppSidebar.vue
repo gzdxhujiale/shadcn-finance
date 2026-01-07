@@ -14,27 +14,27 @@ import {
   SidebarRail,
 } from '@/components/ui/sidebar'
 
+import { useTeam } from '@/composables/useTeam'
+
 const props = withDefaults(defineProps<SidebarProps>(), {
   collapsible: "icon",
 })
 
-
-import { sidebarConfig } from '@/config/sidebar'
-
-const data = sidebarConfig
+// 使用团队 composable 获取过滤后的导航（teams 现在是响应式的）
+const { teams, user, filteredNavMain, filteredProjects } = useTeam()
 </script>
 
 <template>
   <Sidebar v-bind="props">
     <SidebarHeader>
-      <TeamSwitcher :teams="data.teams" />
+      <TeamSwitcher :teams="teams" />
     </SidebarHeader>
     <SidebarContent>
-      <NavMain :items="data.navMain" />
-      <NavProjects :projects="data.projects" />
+      <NavMain :items="filteredNavMain" />
+      <NavProjects :projects="filteredProjects" />
     </SidebarContent>
     <SidebarFooter>
-      <NavUser :user="data.user" />
+      <NavUser :user="user" />
     </SidebarFooter>
     <SidebarRail />
   </Sidebar>

@@ -10,7 +10,8 @@ import {
   Filter,
   LayoutGrid,
   Check,
-  ChevronRight
+  ChevronRight,
+  Box
 } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -24,22 +25,31 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
 
 // --- 默认数据 ---
 const DEFAULT_ROLES = [
   { id: 1, name: '超级管理员', code: 'SUPER_ADMIN', desc: '拥有系统所有权限', userCount: 1, isSystem: true, color: 'red', permissions: ['all'], rowPermissionId: 'all', columnPermissionId: 'all' },
-  { id: 2, name: '运维工程师', code: 'OPS_ENGINEER', desc: '负责系统运维、日志管理', userCount: 2, isSystem: true, color: 'purple', permissions: ['rbac:log:view', 'config:management:view'], rowPermissionId: 'all', columnPermissionId: 'hide_sensitive' },
-  { id: 3, name: '数据质量管理员', code: 'DATA_QA', desc: '负责数据质量监控与管理', userCount: 3, isSystem: false, color: 'blue', permissions: ['report:center', 'report:company:view', 'workspace:todo:view'], rowPermissionId: 'all', columnPermissionId: 'all' },
-  { id: 4, name: '数据资产管理员', code: 'DATA_ASSET', desc: '负责数据资产盘点与管理', userCount: 1, isSystem: false, color: 'cyan', permissions: ['report:center', 'report:company:view', 'config:management:view'], rowPermissionId: 'all', columnPermissionId: 'hide_sensitive' },
-  { id: 5, name: '财务BI', code: 'FINANCE_BI', desc: '财务部门数据分析师', userCount: 5, isSystem: false, color: 'green', permissions: ['report:center', 'report:company:view', 'report:bi:view'], rowPermissionId: 'profit_positive', columnPermissionId: 'all' },
-  { id: 6, name: '业务BI', code: 'BUSINESS_BI', desc: '业务部门数据分析师', userCount: 8, isSystem: false, color: 'amber', permissions: ['report:center', 'report:ameba:view', 'report:store:view'], rowPermissionId: 'platform_taobao', columnPermissionId: 'all' },
+  { id: 2, name: '运维工程师', code: 'OPS_ENGINEER', desc: '负责系统运维、日志管理', userCount: 2, isSystem: true, color: 'purple', permissions: ['rbac:log:view', 'settings:dimension:view', 'settings:notification:view'], rowPermissionId: 'all', columnPermissionId: 'hide_sensitive' },
+  { id: 3, name: '财务数据中心', code: 'FINANCE_CENTER', desc: '拥有所有经营仓和数据看板权限', userCount: 3, isSystem: false, color: 'blue', permissions: ['workspace', 'report', 'dashboard', 'docs'], rowPermissionId: 'all', columnPermissionId: 'all' },
+  { id: 4, name: '财务BI', code: 'FINANCE_BI', desc: '财务部门数据分析师', userCount: 5, isSystem: false, color: 'green', permissions: ['workspace', 'report:company:view', 'report:ameba:view', 'report:store:view', 'dashboard:self-service-bi:view', 'dashboard:comparison:view'], rowPermissionId: 'profit_positive', columnPermissionId: 'all' },
+  { id: 5, name: '业务BI', code: 'BUSINESS_BI', desc: '业务部门数据分析师', userCount: 8, isSystem: false, color: 'amber', permissions: ['workspace', 'report:store:view', 'dashboard:self-service-bi:view'], rowPermissionId: 'platform_taobao', columnPermissionId: 'all' },
+  { id: 6, name: 'IT运维', code: 'IT_OPS', desc: 'IT部门运维人员', userCount: 2, isSystem: false, color: 'cyan', permissions: ['rbac', 'settings', 'docs:user-manual:view'], rowPermissionId: 'all', columnPermissionId: 'hide_sensitive' },
 ]
 
 const DEFAULT_PERMISSION_TREE = [
-  { id: 'report', name: '数据分析', children: [
-    { id: 'report:center', name: '经营仓中心' },
+  { id: 'workspace', name: '工作台', children: [
+    { id: 'workspace:todo', name: '待办清单', children: [
+      { id: 'workspace:todo:view', name: '查看' },
+      { id: 'workspace:todo:edit', name: '编辑' },
+    ]},
+    { id: 'workspace:history', name: '历史记录', children: [
+      { id: 'workspace:history:view', name: '查看' },
+    ]},
+  ]},
+  { id: 'report', name: '经营仓', children: [
     { id: 'report:company', name: '公司经营仓', children: [
       { id: 'report:company:view', name: '查看' },
       { id: 'report:company:export', name: '导出' },
@@ -52,19 +62,16 @@ const DEFAULT_PERMISSION_TREE = [
       { id: 'report:store:view', name: '查看' },
       { id: 'report:store:export', name: '导出' },
     ]},
-    { id: 'report:bi', name: '数据看板', children: [
-      { id: 'report:bi:view', name: '查看' },
-      { id: 'report:bi:edit', name: '编辑' },
-      { id: 'report:bi:export', name: '导出' },
-    ]},
   ]},
-  { id: 'workspace', name: '工作台', children: [
-    { id: 'workspace:todo', name: '待办清单', children: [
-      { id: 'workspace:todo:view', name: '查看' },
-      { id: 'workspace:todo:edit', name: '编辑' },
+  { id: 'dashboard', name: '数据看板', children: [
+    { id: 'dashboard:self-service-bi', name: '自助报表', children: [
+      { id: 'dashboard:self-service-bi:view', name: '查看' },
+      { id: 'dashboard:self-service-bi:edit', name: '编辑' },
+      { id: 'dashboard:self-service-bi:export', name: '导出' },
     ]},
-    { id: 'workspace:history', name: '历史记录', children: [
-      { id: 'workspace:history:view', name: '查看' },
+    { id: 'dashboard:comparison', name: '对比分析', children: [
+      { id: 'dashboard:comparison:view', name: '查看' },
+      { id: 'dashboard:comparison:export', name: '导出' },
     ]},
   ]},
   { id: 'rbac', name: '权限中心', children: [
@@ -80,18 +87,34 @@ const DEFAULT_PERMISSION_TREE = [
       { id: 'rbac:role:add', name: '新增' },
       { id: 'rbac:role:delete', name: '删除' },
     ]},
-    { id: 'rbac:permission', name: '权限管理', children: [
+    { id: 'rbac:permission', name: '权限配置', children: [
       { id: 'rbac:permission:view', name: '查看' },
       { id: 'rbac:permission:edit', name: '编辑' },
+    ]},
+    { id: 'rbac:apply', name: '权限申请', children: [
+      { id: 'rbac:apply:view', name: '查看' },
+      { id: 'rbac:apply:approve', name: '审批' },
     ]},
     { id: 'rbac:log', name: '操作日志', children: [
       { id: 'rbac:log:view', name: '查看' },
     ]},
   ]},
-  { id: 'config', name: '系统设置', children: [
-    { id: 'config:management', name: '配置管理', children: [
-      { id: 'config:management:view', name: '查看' },
-      { id: 'config:management:edit', name: '编辑' },
+  { id: 'settings', name: '系统设置', children: [
+    { id: 'settings:dimension', name: '配置管理', children: [
+      { id: 'settings:dimension:view', name: '查看' },
+      { id: 'settings:dimension:edit', name: '编辑' },
+    ]},
+    { id: 'settings:notification', name: '通知设置', children: [
+      { id: 'settings:notification:view', name: '查看' },
+      { id: 'settings:notification:edit', name: '编辑' },
+    ]},
+  ]},
+  { id: 'docs', name: '文档', children: [
+    { id: 'docs:data-dictionary', name: '数据字典', children: [
+      { id: 'docs:data-dictionary:view', name: '查看' },
+    ]},
+    { id: 'docs:user-manual', name: '用户操作手册', children: [
+      { id: 'docs:user-manual:view', name: '查看' },
     ]},
   ]},
 ]
@@ -248,27 +271,26 @@ const togglePermission = (permId) => {
 </script>
 
 <template>
-  <!-- Teleport 按钮到面包屑区域 -->
-  <Teleport to="#breadcrumb-actions" defer>
-    <div 
-      class="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
-      @click="openDialog('add')"
-    >
-      <Plus class="h-4 w-4" />
-      <span>新增角色</span>
-    </div>
-  </Teleport>
-
-  <div class="h-full flex flex-col">
+  <div class="h-[calc(100vh-4rem)] overflow-hidden flex flex-col">
+    <!-- Teleport 按钮到面包屑区域 -->
+    <Teleport to="#breadcrumb-actions" defer>
+      <div 
+        class="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+        @click="openDialog('add')"
+      >
+        <Plus class="h-4 w-4" />
+        <span>新增角色</span>
+      </div>
+    </Teleport>
     <!-- Main Content -->
     <div class="flex-1 flex overflow-hidden">
       <!-- Left Sidebar: Role List -->
       <div class="w-72 border-r bg-muted/30 flex flex-col">
-        <div class="p-4 border-b">
+        <div class="p-4 border-b flex items-center justify-between">
           <h3 class="font-semibold">角色列表</h3>
           <span class="text-xs text-muted-foreground">点击查看详情</span>
         </div>
-        <ScrollArea class="flex-1">
+        <div class="flex-1 scrollbar-hidden-auto">
           <div class="p-2 space-y-1">
             <div
               v-for="role in roles"
@@ -297,11 +319,11 @@ const togglePermission = (permId) => {
               </div>
             </div>
           </div>
-        </ScrollArea>
+        </div>
       </div>
 
       <!-- Right Content: Role Details -->
-      <div class="flex-1 flex flex-col overflow-hidden bg-white dark:bg-slate-950">
+      <div class="flex-1 flex flex-col overflow-auto bg-white dark:bg-slate-950">
         <template v-if="selectedRole">
           <!-- Detail Header -->
           <div class="p-6 border-b bg-gradient-to-b from-muted/30 to-transparent">
@@ -342,7 +364,7 @@ const togglePermission = (permId) => {
           </div>
 
           <!-- Detail Content -->
-          <ScrollArea class="flex-1 p-6">
+          <div class="flex-1 p-6">
             <div class="space-y-8">
               <!-- 功能权限 -->
               <div class="space-y-4">
@@ -425,7 +447,7 @@ const togglePermission = (permId) => {
                 </div>
               </div>
             </div>
-          </ScrollArea>
+          </div>
         </template>
         
         <div v-else class="flex-1 flex items-center justify-center text-muted-foreground">
@@ -439,151 +461,180 @@ const togglePermission = (permId) => {
 
     <!-- Edit/Add Dialog -->
     <Dialog v-model:open="dialogOpen">
-      <DialogContent class="sm:max-w-[700px] max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent class="sm:max-w-[720px] flex flex-col gap-0 p-0 max-h-[85vh]">
+        <DialogHeader class="px-6 py-4 border-b shrink-0">
           <DialogTitle>{{ dialogType === 'add' ? '新增角色' : '编辑角色' }}</DialogTitle>
+          <DialogDescription>
+             配置角色的基础信息及功能、数据权限范围。
+          </DialogDescription>
         </DialogHeader>
         
-        <div class="space-y-6 py-4">
-          <div class="grid grid-cols-2 gap-4">
-            <div class="space-y-2">
-              <label class="text-sm font-medium">角色名称 *</label>
-              <Input v-model="form.name" placeholder="请输入角色名称" />
-            </div>
-            <div class="space-y-2">
-              <label class="text-sm font-medium">角色编码 *</label>
-              <Input v-model="form.code" placeholder="如: FINANCE_BI" />
-            </div>
-          </div>
-          
-          <div class="space-y-2">
-            <label class="text-sm font-medium">角色描述</label>
-            <textarea
-              v-model="form.desc"
-              class="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
-              placeholder="请输入角色描述"
-            ></textarea>
-          </div>
-          
-          <div class="space-y-2">
-            <label class="text-sm font-medium">角色颜色</label>
-            <div class="flex gap-2">
-              <div 
-                v-for="color in colors" 
-                :key="color" 
-                class="w-8 h-8 rounded-lg cursor-pointer border-2 transition-all"
-                :class="[
-                  getColorClass(color),
-                  form.color === color ? 'border-foreground scale-110' : 'border-transparent'
-                ]"
-                @click="form.color = color"
-              ></div>
-            </div>
-          </div>
-
-          <Tabs default-value="function" class="w-full">
-            <TabsList class="mb-4">
-              <TabsTrigger value="function">功能权限</TabsTrigger>
-              <TabsTrigger value="data">数据权限</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="function" class="border rounded-lg p-4 max-h-[250px] overflow-y-auto">
-              <div class="space-y-3">
-                <div v-for="group in permissionTree" :key="group.id" class="space-y-2">
-                  <div class="font-medium text-sm flex items-center gap-2">
-                    <ChevronRight class="h-4 w-4" />
-                    {{ group.name }}
+        <div class="flex-1 overflow-y-auto px-6 py-6">
+          <div class="space-y-6">
+            <!-- Basic Info -->
+            <div class="space-y-4">
+              <h3 class="text-sm font-medium text-foreground/80 flex items-center gap-2">
+                <Box class="h-4 w-4" /> 基础信息
+              </h3>
+              <div class="grid grid-cols-2 gap-4">
+                <div class="space-y-2">
+                  <label class="text-sm font-medium text-muted-foreground">角色名称 <span class="text-destructive">*</span></label>
+                  <Input v-model="form.name" placeholder="请输入角色名称" />
+                </div>
+                <div class="space-y-2">
+                  <label class="text-sm font-medium text-muted-foreground">角色编码 <span class="text-destructive">*</span></label>
+                  <Input v-model="form.code" placeholder="如: FINANCE_BI" class="font-mono" />
+                </div>
+              </div>
+              
+              <div class="space-y-2">
+                <label class="text-sm font-medium text-muted-foreground">角色描述</label>
+                <textarea
+                  v-model="form.desc"
+                  class="flex min-h-[80px] w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
+                  placeholder="请输入角色描述"
+                ></textarea>
+              </div>
+              
+              <div class="space-y-2">
+                <label class="text-sm font-medium text-muted-foreground">标签颜色</label>
+                <div class="flex gap-3">
+                  <div 
+                    v-for="color in colors" 
+                    :key="color" 
+                    class="w-8 h-8 rounded-full cursor-pointer ring-2 transition-all flex items-center justify-center hover:scale-110"
+                    :class="[
+                      getColorClass(color),
+                      form.color === color ? 'ring-offset-2 ring-primary scale-110' : 'ring-transparent opacity-80 hover:opacity-100'
+                    ]"
+                    @click="form.color = color"
+                  >
+                    <Check v-if="form.color === color" class="h-4 w-4 text-white drop-shadow-md" />
                   </div>
-                  <div v-if="group.children" class="ml-6 space-y-2">
-                    <div v-for="item in group.children" :key="item.id" class="space-y-1">
-                      <div 
-                        class="flex items-center gap-2 p-2 rounded hover:bg-muted cursor-pointer"
-                        @click="togglePermission(item.id)"
-                      >
+                </div>
+              </div>
+            </div>
+
+            <Separator />
+            
+            <!-- Permissions Tabs -->
+            <Tabs default-value="function" class="w-full">
+               <div class="flex items-center justify-between mb-4">
+                 <h3 class="text-sm font-medium text-foreground/80 flex items-center gap-2">
+                  <Shield class="h-4 w-4" /> 权限配置
+                </h3>
+                <TabsList class="h-9">
+                  <TabsTrigger value="function" class="text-xs px-3">功能权限</TabsTrigger>
+                  <TabsTrigger value="data" class="text-xs px-3">数据权限</TabsTrigger>
+                </TabsList>
+               </div>
+              
+              <TabsContent value="function" class="border rounded-lg max-h-[350px] overflow-y-auto bg-muted/20">
+                <div class="p-2 space-y-1">
+                  <div v-for="group in permissionTree" :key="group.id" class="rounded-lg border bg-card mb-2 overflow-hidden shadow-sm">
+                    <div class="px-4 py-2.5 bg-muted/40 border-b flex items-center justify-between">
+                       <span class="font-medium text-sm flex items-center gap-2">
+                        <component :is="group.icon || 'Box'" class="h-4 w-4 text-muted-foreground" v-if="group.icon" />
+                        {{ group.name }}
+                       </span>
+                    </div>
+                    
+                    <div v-if="group.children" class="p-2 space-y-1">
+                      <div v-for="item in group.children" :key="item.id" class="space-y-1 p-2 rounded-md hover:bg-muted/50 transition-colors">
                         <div 
-                          class="w-4 h-4 rounded border flex items-center justify-center transition-colors"
-                          :class="form.permissions.includes(item.id) ? 'bg-primary border-primary' : 'border-muted-foreground'"
-                        >
-                          <Check v-if="form.permissions.includes(item.id)" class="h-3 w-3 text-white" />
-                        </div>
-                        <span class="text-sm">{{ item.name }}</span>
-                      </div>
-                      <div v-if="item.children" class="ml-6 flex flex-wrap gap-2">
-                        <div 
-                          v-for="action in item.children" 
-                          :key="action.id"
-                          class="flex items-center gap-1.5 px-2 py-1 rounded border text-xs cursor-pointer transition-colors"
-                          :class="form.permissions.includes(action.id) ? 'bg-primary/10 border-primary text-primary' : 'hover:bg-muted'"
-                          @click="togglePermission(action.id)"
+                          class="flex items-center gap-3 cursor-pointer"
+                          @click="togglePermission(item.id)"
                         >
                           <div 
-                            class="w-3 h-3 rounded border flex items-center justify-center"
-                            :class="form.permissions.includes(action.id) ? 'bg-primary border-primary' : 'border-muted-foreground'"
+                            class="w-4 h-4 rounded border flex items-center justify-center transition-all shadow-sm"
+                            :class="form.permissions.includes(item.id) ? 'bg-primary border-primary' : 'border-muted-foreground/60 bg-background'"
                           >
-                            <Check v-if="form.permissions.includes(action.id)" class="h-2 w-2 text-white" />
+                            <Check v-if="form.permissions.includes(item.id)" class="h-3 w-3 text-white" />
                           </div>
-                          {{ action.name }}
+                          <span class="text-sm font-medium">{{ item.name }}</span>
+                        </div>
+                        
+                        <div v-if="item.children" class="ml-7 pt-1 flex flex-wrap gap-2">
+                          <div 
+                            v-for="action in item.children" 
+                            :key="action.id"
+                            class="flex items-center gap-1.5 px-2 py-1 rounded border text-xs cursor-pointer transition-all select-none"
+                            :class="form.permissions.includes(action.id) ? 'bg-primary/5 border-primary/30 text-primary font-medium' : 'hover:bg-muted border-transparent bg-muted/40'"
+                            @click.stop="togglePermission(action.id)"
+                          >
+                            <div 
+                              class="w-3 h-3 rounded-sm border flex items-center justify-center transition-colors"
+                              :class="form.permissions.includes(action.id) ? 'bg-primary border-primary' : 'border-muted-foreground/60'"
+                            >
+                              <Check v-if="form.permissions.includes(action.id)" class="h-2 w-2 text-white" />
+                            </div>
+                            {{ action.name }}
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="data" class="border rounded-lg p-4">
-              <div class="grid grid-cols-2 gap-6">
-                <!-- Row Permission -->
-                <div>
-                  <div class="flex items-center gap-2 font-medium text-sm text-blue-600 mb-3">
-                    <Filter class="h-4 w-4" /> 行级权限
-                  </div>
-                  <div class="space-y-2">
-                    <div 
-                      v-for="rule in rowRules" 
-                      :key="rule.id"
-                      class="p-3 border rounded-lg cursor-pointer transition-all"
-                      :class="form.rowPermissionId === rule.id ? 'bg-blue-50 border-blue-300' : 'hover:bg-muted'"
-                      @click="form.rowPermissionId = rule.id"
-                    >
-                      <div class="flex items-center justify-between mb-1">
-                        <span class="font-medium text-sm">{{ rule.name }}</span>
-                        <Check v-if="form.rowPermissionId === rule.id" class="h-4 w-4 text-blue-600" />
+              </TabsContent>
+              
+              <TabsContent value="data" class="border rounded-lg p-6 bg-muted/10">
+                <div class="grid grid-cols-2 gap-8">
+                  <!-- Row Permission -->
+                  <div class="space-y-3">
+                    <div class="flex items-center gap-2 font-medium text-sm text-blue-600 pb-2 border-b border-blue-100">
+                      <Filter class="h-4 w-4" /> 行级权限 (数据范围)
+                    </div>
+                    <div class="space-y-2.5">
+                      <div 
+                        v-for="rule in rowRules" 
+                        :key="rule.id"
+                        class="p-3 border rounded-lg cursor-pointer transition-all relative overflow-hidden group"
+                        :class="form.rowPermissionId === rule.id ? 'bg-blue-50/80 border-blue-200 ring-1 ring-blue-200 shadow-sm' : 'hover:bg-muted hover:border-foreground/20 bg-card'"
+                        @click="form.rowPermissionId = rule.id"
+                      >
+                        <div class="flex items-center justify-between mb-1 relative z-10">
+                          <span class="font-medium text-sm" :class="form.rowPermissionId === rule.id ? 'text-blue-700' : ''">{{ rule.name }}</span>
+                          <div class="h-4 w-4 rounded-full border flex items-center justify-center" :class="form.rowPermissionId === rule.id ? 'border-blue-500 bg-blue-500 text-white' : 'border-muted-foreground group-hover:border-foreground'">
+                              <Check v-if="form.rowPermissionId === rule.id" class="h-2.5 w-2.5" />
+                          </div>
+                        </div>
+                        <div class="text-xs text-muted-foreground relative z-10">{{ rule.description }}</div>
                       </div>
-                      <div class="text-xs text-muted-foreground">{{ rule.description }}</div>
+                    </div>
+                  </div>
+                  
+                  <!-- Column Permission -->
+                  <div class="space-y-3">
+                    <div class="flex items-center gap-2 font-medium text-sm text-green-600 pb-2 border-b border-green-100">
+                      <LayoutGrid class="h-4 w-4" /> 列级权限 (敏感字段)
+                    </div>
+                    <div class="space-y-2.5">
+                      <div 
+                        v-for="rule in colRules" 
+                        :key="rule.id"
+                        class="p-3 border rounded-lg cursor-pointer transition-all relative overflow-hidden group"
+                        :class="form.columnPermissionId === rule.id ? 'bg-green-50/80 border-green-200 ring-1 ring-green-200 shadow-sm' : 'hover:bg-muted hover:border-foreground/20 bg-card'"
+                        @click="form.columnPermissionId = rule.id"
+                      >
+                        <div class="flex items-center justify-between mb-1 relative z-10">
+                          <span class="font-medium text-sm" :class="form.columnPermissionId === rule.id ? 'text-green-700' : ''">{{ rule.name }}</span>
+                          <div class="h-4 w-4 rounded-full border flex items-center justify-center" :class="form.columnPermissionId === rule.id ? 'border-green-500 bg-green-500 text-white' : 'border-muted-foreground group-hover:border-foreground'">
+                              <Check v-if="form.columnPermissionId === rule.id" class="h-2.5 w-2.5" />
+                          </div>
+                        </div>
+                        <div class="text-xs text-muted-foreground relative z-10">{{ rule.description }}</div>
+                      </div>
                     </div>
                   </div>
                 </div>
-                
-                <!-- Column Permission -->
-                <div>
-                  <div class="flex items-center gap-2 font-medium text-sm text-green-600 mb-3">
-                    <LayoutGrid class="h-4 w-4" /> 列级权限
-                  </div>
-                  <div class="space-y-2">
-                    <div 
-                      v-for="rule in colRules" 
-                      :key="rule.id"
-                      class="p-3 border rounded-lg cursor-pointer transition-all"
-                      :class="form.columnPermissionId === rule.id ? 'bg-green-50 border-green-300' : 'hover:bg-muted'"
-                      @click="form.columnPermissionId = rule.id"
-                    >
-                      <div class="flex items-center justify-between mb-1">
-                        <span class="font-medium text-sm">{{ rule.name }}</span>
-                        <Check v-if="form.columnPermissionId === rule.id" class="h-4 w-4 text-green-600" />
-                      </div>
-                      <div class="text-xs text-muted-foreground">{{ rule.description }}</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </TabsContent>
-          </Tabs>
+              </TabsContent>
+            </Tabs>
+          </div>
         </div>
         
-        <DialogFooter>
-          <Button variant="outline" @click="closeDialog">取消</Button>
-          <Button @click="handleSave">{{ dialogType === 'add' ? '创建' : '保存' }}</Button>
+        <DialogFooter class="px-6 py-4 border-t shrink-0">
+          <Button variant="outline" @click="closeDialog" class="w-24">取消</Button>
+          <Button @click="handleSave" class="w-24">{{ dialogType === 'add' ? '立即创建' : '保存修改' }}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

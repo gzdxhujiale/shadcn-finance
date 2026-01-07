@@ -51,18 +51,17 @@ const handleTest = (type) => {
 </script>
 
 <template>
-  <!-- Teleport 保存按钮到面包屑区域 -->
-  <Teleport to="#breadcrumb-actions" defer>
-    <div 
-      class="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
-      @click="handleSave"
-    >
-      <Save class="h-4 w-4" />
-      <span>保存设置</span>
-    </div>
-  </Teleport>
-
-  <div class="h-full flex flex-col">
+  <div class="h-[calc(100vh-4rem)] overflow-hidden flex flex-col">
+    <!-- Teleport 保存按钮到面包屑区域 -->
+    <Teleport to="#breadcrumb-actions" defer>
+      <div 
+        class="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+        @click="handleSave"
+      >
+        <Save class="h-4 w-4" />
+        <span>保存设置</span>
+      </div>
+    </Teleport>
     <!-- Main Content -->
     <div class="flex-1 overflow-auto p-6">
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-5xl mx-auto">

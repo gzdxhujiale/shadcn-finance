@@ -115,9 +115,33 @@ const handleSubNavClick = () => {
           <!-- 各页面会通过 Teleport 在此渲染内容 -->
         </div>
       </header>
-      <div class="flex flex-1 flex-col">
-        <component :is="CurrentPageComponent" />
+      <div class="flex flex-1 flex-col overflow-hidden">
+        <Transition
+          name="fade-slide"
+          mode="out-in"
+          appear
+        >
+          <component :is="CurrentPageComponent" :key="currentPage" />
+        </Transition>
       </div>
     </SidebarInset>
   </SidebarProvider>
 </template>
+
+<style>
+/* Page transition effects */
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.fade-slide-enter-from {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+</style>

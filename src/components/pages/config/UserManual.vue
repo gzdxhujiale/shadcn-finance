@@ -193,20 +193,19 @@ watch(detailTitle, (newVal) => {
 </script>
 
 <template>
-  <!-- Teleport 搜索框到面包屑区域 -->
-  <Teleport to="#breadcrumb-actions" defer>
-    <div class="relative w-64">
-      <Search class="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-      <Input 
-        v-model="searchText"
-        type="search" 
-        placeholder="搜索帮助文档..." 
-        class="pl-9 h-9"
-      />
-    </div>
-  </Teleport>
-
-  <div class="h-full flex flex-col">
+  <div class="h-[calc(100vh-4rem)] overflow-hidden flex flex-col">
+    <!-- Teleport 搜索框到面包屑区域 -->
+    <Teleport to="#breadcrumb-actions" defer>
+      <div class="relative w-64">
+        <Search class="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+        <Input 
+          v-model="searchText"
+          type="search" 
+          placeholder="搜索帮助文档..." 
+          class="pl-9 h-9"
+        />
+      </div>
+    </Teleport>
     <!-- 列表视图 -->
     <ScrollArea v-if="!selectedDocId" class="flex-1 p-6">
       <div class="space-y-10 max-w-6xl mx-auto">

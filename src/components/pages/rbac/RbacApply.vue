@@ -239,27 +239,26 @@ const removeRole = (role) => {
 </script>
 
 <template>
-  <!-- 统计数据 Teleport 到面包屑区域 -->
-  <Teleport to="#breadcrumb-actions" defer>
-    <div class="flex items-center gap-2">
-      <div class="text-center">
-        <div class="text-xs text-muted-foreground">全部申请</div>
-        <div class="text-lg font-bold">{{ applications.length }}</div>
+  <div class="h-[calc(100vh-4rem)] overflow-hidden p-6 flex flex-col">
+    <!-- 统计数据 Teleport 到面包屑区域 -->
+    <Teleport to="#breadcrumb-actions" defer>
+      <div class="flex items-center gap-2">
+        <div class="text-center">
+          <div class="text-xs text-muted-foreground">全部申请</div>
+          <div class="text-lg font-bold">{{ applications.length }}</div>
+        </div>
+        <div class="w-px h-6 bg-border"></div>
+        <div class="text-center">
+          <div class="text-xs text-muted-foreground">待审批</div>
+          <div class="text-lg font-bold text-amber-600">{{ pendingCount }}</div>
+        </div>
+        <div class="w-px h-6 bg-border"></div>
+        <div class="text-center">
+          <div class="text-xs text-muted-foreground">已通过</div>
+          <div class="text-lg font-bold text-emerald-600">{{ approvedCount }}</div>
+        </div>
       </div>
-      <div class="w-px h-6 bg-border"></div>
-      <div class="text-center">
-        <div class="text-xs text-muted-foreground">待审批</div>
-        <div class="text-lg font-bold text-amber-600">{{ pendingCount }}</div>
-      </div>
-      <div class="w-px h-6 bg-border"></div>
-      <div class="text-center">
-        <div class="text-xs text-muted-foreground">已通过</div>
-        <div class="text-lg font-bold text-emerald-600">{{ approvedCount }}</div>
-      </div>
-    </div>
-  </Teleport>
-
-  <div class="h-full p-6 flex flex-col">
+    </Teleport>
     <!-- Main Content -->
     <div class="flex-1 bg-white dark:bg-slate-950 rounded-lg border shadow-sm flex flex-col overflow-hidden">
       <!-- Toolbar & Tabs -->
@@ -370,8 +369,8 @@ const removeRole = (role) => {
 
     <!-- Sheet: New Request / View Details -->
     <Sheet v-model:open="sheetOpen">
-      <SheetContent class="sm:max-w-[540px] flex flex-col gap-0">
-        <SheetHeader class="px-1 pb-6 border-b">
+      <SheetContent class="sm:max-w-[540px] flex flex-col gap-0 p-0">
+        <SheetHeader class="px-6 py-4 border-b shrink-0">
           <SheetTitle>{{ sheetType === 'new' ? '发起新申请' : '申请单详情' }}</SheetTitle>
           <SheetDescription v-if="sheetType === 'new'">
             请准确选择所需角色，并详细说明业务背景以加快审批。
@@ -379,12 +378,14 @@ const removeRole = (role) => {
         </SheetHeader>
         
         <!-- New Request Form -->
-        <div v-if="sheetType === 'new'" class="flex-1 py-6 flex flex-col gap-6 overflow-y-auto px-1">
-          <div class="space-y-3">
-            <label class="text-sm font-medium leading-none">申请角色</label>
+        <div v-if="sheetType === 'new'" class="flex-1 px-6 py-6 flex flex-col gap-6 overflow-y-auto">
+          <div class="space-y-4">
+            <div class="flex items-center gap-2 text-primary font-medium pb-2 border-b">
+              <Shield class="h-4 w-4" /> 申请角色
+            </div>
             <div class="space-y-3">
               <Select @update:model-value="addRole">
-                <SelectTrigger>
+                <SelectTrigger class="bg-muted/30">
                   <SelectValue placeholder="选择角色添加..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -392,128 +393,141 @@ const removeRole = (role) => {
                 </SelectContent>
               </Select>
               
-              <div class="flex flex-wrap gap-2 min-h-[32px]">
+              <div class="flex flex-wrap gap-2 min-h-[40px] p-3 bg-muted/20 rounded-md border border-dashed">
+                <span v-if="formData.requestRoles.length === 0" class="text-sm text-muted-foreground">
+                  暂未选择角色
+                </span>
                 <Badge 
                   v-for="role in formData.requestRoles" 
                   :key="role" 
                   variant="secondary"
-                  class="gap-1 pl-2.5 pr-1 py-1"
+                  class="gap-1 pl-2.5 pr-1 py-1 h-7 text-sm"
                 >
                   {{ role }}
-                  <X 
-                    class="h-3 w-3 cursor-pointer hover:text-destructive transition-colors" 
+                  <div 
+                    class="ml-1 rounded-full p-0.5 hover:bg-destructive hover:text-white cursor-pointer transition-colors"
                     @click="removeRole(role)" 
-                  />
+                  >
+                    <X class="h-3 w-3" />
+                  </div>
                 </Badge>
-                <span v-if="formData.requestRoles.length === 0" class="text-sm text-muted-foreground italic px-1">
-                  暂未选择角色
-                </span>
               </div>
             </div>
           </div>
           
-          <div class="space-y-3">
-            <label class="text-sm font-medium leading-none">申请理由</label>
-            <textarea
-              v-model="formData.reason"
-              class="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
-              placeholder="例如：因负责X项目数据分析，需申请Y数据的查看权限..."
-            ></textarea>
-            <div class="text-xs text-muted-foreground text-right">{{ formData.reason.length }}/200</div>
+          <div class="space-y-4">
+            <div class="flex items-center gap-2 text-primary font-medium pb-2 border-b">
+              <FileText class="h-4 w-4" /> 申请理由
+            </div>
+            <div class="space-y-2">
+              <textarea
+                v-model="formData.reason"
+                class="flex min-h-[160px] w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y p-4 leading-relaxed"
+                placeholder="例如：因负责X项目数据分析，需申请Y数据的查看权限... (建议详细描述业务背景)"
+              ></textarea>
+              <div class="text-xs text-muted-foreground text-right">{{ formData.reason.length }}/200</div>
+            </div>
           </div>
         </div>
         
         <!-- View Details -->
-        <div v-else-if="selectedApp" class="flex-1 py-6 flex flex-col gap-6 overflow-y-auto px-1">
+        <div v-else-if="selectedApp" class="flex-1 px-6 py-6 flex flex-col gap-6 overflow-y-auto">
           <!-- Status Banner -->
           <div 
-            class="p-4 rounded-lg flex items-start gap-3 border"
-            :class="getStatusConfig(selectedApp.status).className.replace('text-', 'bg-opacity-10 text-')"
+            class="p-5 rounded-lg flex items-start gap-4 border shadow-sm"
+            :class="getStatusConfig(selectedApp.status).className.replace('text-', 'bg-opacity-5 text-')"
           >
-            <div class="p-1 rounded-full bg-white/50 shrink-0">
-               <component :is="getStatusConfig(selectedApp.status).icon" class="h-5 w-5" />
+            <div 
+              class="p-2 rounded-full shrink-0 shadow-sm"
+              :class="selectedApp.status === 'pending' ? 'bg-amber-100 text-amber-600' : (selectedApp.status === 'approved' ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600')"
+            >
+               <component :is="getStatusConfig(selectedApp.status).icon" class="h-6 w-6" />
             </div>
             <div>
-              <div class="font-bold text-lg">{{ getStatusConfig(selectedApp.status).label }}</div>
-              <div class="text-sm opacity-90 mt-1" v-if="selectedApp.status === 'pending'">
-                正在等待管理员审核
+              <div class="font-bold text-xl tracking-tight">{{ getStatusConfig(selectedApp.status).label }}</div>
+              <div class="text-sm opacity-90 mt-1.5 font-medium" v-if="selectedApp.status === 'pending'">
+                正在等待管理员审核，预计1个工作日内完成
               </div>
-              <div class="text-sm opacity-90 mt-1" v-else>
+              <div class="text-sm opacity-90 mt-1.5 font-medium" v-else>
                 审批人：{{ selectedApp.approver || '系统自动' }}
               </div>
             </div>
           </div>
 
           <div class="space-y-4">
-            <h3 class="font-semibold flex items-center gap-2">
+            <h3 class="font-semibold flex items-center gap-2 text-foreground/80">
               <FileText class="h-4 w-4" /> 申请信息
             </h3>
-            <div class="grid grid-cols-1 gap-4 text-sm p-4 bg-muted/30 rounded-lg border">
-              <div class="grid grid-cols-3 items-start gap-2">
-                <span class="text-muted-foreground">申请人</span>
-                <span class="col-span-2 font-medium">{{ selectedApp.applicant }} <span class="text-muted-foreground font-normal">({{ selectedApp.department }})</span></span>
+            <div class="grid grid-cols-1 gap-4 text-sm p-5 bg-muted/30 rounded-xl border">
+              <div class="grid grid-cols-3 items-start gap-4">
+                <span class="text-muted-foreground text-right">申请人</span>
+                <span class="col-span-2 font-medium">{{ selectedApp.applicant }} <span class="text-muted-foreground font-normal ml-1">({{ selectedApp.department }})</span></span>
               </div>
-              <div class="grid grid-cols-3 items-start gap-2">
-                <span class="text-muted-foreground">申请时间</span>
-                <span class="col-span-2 font-mono">{{ selectedApp.createTime }}</span>
+              <div class="grid grid-cols-3 items-start gap-4">
+                <span class="text-muted-foreground text-right">申请时间</span>
+                <span class="col-span-2 font-mono text-xs mt-0.5">{{ selectedApp.createTime }}</span>
               </div>
-              <div class="grid grid-cols-3 items-start gap-2">
-                <span class="text-muted-foreground">目标角色</span>
+              <div class="grid grid-cols-3 items-start gap-4">
+                <span class="text-muted-foreground text-right pt-1">目标角色</span>
                 <div class="col-span-2 flex flex-wrap gap-2">
-                  <Badge v-for="r in selectedApp.requestRoles" :key="r" variant="outline" class="bg-background">
+                  <Badge v-for="r in selectedApp.requestRoles" :key="r" variant="outline" class="bg-background px-2 py-0.5">
                     {{ r }}
                   </Badge>
                 </div>
               </div>
-              <div class="grid grid-cols-3 items-start gap-2">
-                <span class="text-muted-foreground">申请理由</span>
-                <span class="col-span-2 text-foreground/90 whitespace-pre-wrap">{{ selectedApp.reason }}</span>
+              <Separator class="my-1 col-span-3 opacity-50" />
+              <div class="grid grid-cols-3 items-start gap-4">
+                <span class="text-muted-foreground text-right pt-1">申请理由</span>
+                <span class="col-span-2 text-foreground/90 whitespace-pre-wrap leading-relaxed py-1">{{ selectedApp.reason }}</span>
               </div>
             </div>
           </div>
 
-          <Separator />
-
           <div class="space-y-4">
-            <h3 class="font-semibold flex items-center gap-2">
+            <h3 class="font-semibold flex items-center gap-2 text-foreground/80">
               <Clock class="h-4 w-4" /> 审批流转
             </h3>
-            <div class="relative pl-4 ml-2 space-y-8 before:absolute before:inset-y-0 before:left-0 before:w-px before:bg-border">
-              <!-- Step 1: Submit -->
-              <div class="relative">
-                <div class="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full bg-primary ring-4 ring-background"></div>
-                <div class="flex flex-col gap-1">
-                  <span class="text-sm font-medium">提交申请</span>
-                  <span class="text-xs text-muted-foreground">{{ selectedApp.createTime }}</span>
-                  <div class="text-sm text-muted-foreground bg-muted/40 p-2 rounded mt-1">
-                    {{ selectedApp.applicant }} 发起流程
+            <div class="pl-4 ml-2 mt-2">
+              <div class="relative space-y-8 before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-muted-foreground/20">
+                <!-- Step 1: Submit -->
+                <div class="relative pl-8">
+                  <div class="absolute -left-[5px] top-1.5 h-3 w-3 rounded-full bg-primary ring-4 ring-background"></div>
+                  <div class="flex flex-col gap-1.5">
+                    <span class="text-sm font-semibold">提交申请</span>
+                    <span class="text-xs text-muted-foreground font-mono">{{ selectedApp.createTime }}</span>
+                    <div class="text-sm text-foreground/80 bg-muted/30 border p-3 rounded-lg w-fit mt-1">
+                      <span class="font-medium">{{ selectedApp.applicant }}</span> 发起了权限申请流程
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <!-- Step 2: Approval -->
-              <div class="relative">
-                <div 
-                  class="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full ring-4 ring-background"
-                  :class="selectedApp.status === 'pending' ? 'bg-muted-foreground/30' : (selectedApp.status === 'approved' ? 'bg-emerald-500' : 'bg-red-500')"
-                ></div>
-                <div class="flex flex-col gap-1">
-                  <span class="text-sm font-medium">
-                    {{ selectedApp.status === 'pending' ? '等待审批' : (selectedApp.status === 'approved' ? '审批通过' : '审批拒绝') }}
-                  </span>
-                  <span v-if="selectedApp.approveTime" class="text-xs text-muted-foreground">{{ selectedApp.approveTime }}</span>
-                  
-                  <div v-if="selectedApp.status !== 'pending'" class="text-sm bg-muted/40 p-2 rounded mt-1">
-                    <div class="flex justify-between items-center mb-1">
-                      <span class="font-medium text-xs text-muted-foreground">操作人：{{ selectedApp.approver }}</span>
+                <!-- Step 2: Approval -->
+                <div class="relative pl-8">
+                  <div 
+                    class="absolute -left-[5px] top-1.5 h-3 w-3 rounded-full ring-4 ring-background transition-colors"
+                    :class="selectedApp.status === 'pending' ? 'bg-muted-foreground/30' : (selectedApp.status === 'approved' ? 'bg-emerald-500' : 'bg-red-500')"
+                  ></div>
+                  <div class="flex flex-col gap-1.5">
+                    <span class="text-sm font-semibold" :class="{'text-muted-foreground': selectedApp.status === 'pending'}">
+                      {{ selectedApp.status === 'pending' ? '等待审批' : (selectedApp.status === 'approved' ? '审批通过' : '审批拒绝') }}
+                    </span>
+                    <span v-if="selectedApp.approveTime" class="text-xs text-muted-foreground font-mono">{{ selectedApp.approveTime }}</span>
+                    
+                    <div v-if="selectedApp.status !== 'pending'" class="text-sm bg-muted/30 border p-3 rounded-lg mt-1 relative">
+                      <div class="flex items-center gap-2 mb-2 pb-2 border-b border-dashed">
+                        <Avatar class="h-6 w-6">
+                          <AvatarFallback class="text-[10px] bg-primary/10 text-primary">OP</AvatarFallback>
+                        </Avatar>
+                        <span class="font-medium text-xs">操作人：{{ selectedApp.approver }}</span>
+                      </div>
+                      <div v-if="selectedApp.comment" class="flex items-start gap-2 text-foreground/80">
+                        <MessageSquare class="h-3.5 w-3.5 mt-1 shrink-0 text-muted-foreground" />
+                        <span class="italic">"{{ selectedApp.comment }}"</span>
+                      </div>
                     </div>
-                    <div v-if="selectedApp.comment" class="flex items-start gap-2 text-foreground/80">
-                      <MessageSquare class="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                      <span>{{ selectedApp.comment }}</span>
+                    <div v-else class="text-sm text-muted-foreground italic flex items-center gap-2 mt-1">
+                      <Clock class="h-3.5 w-3.5" /> 审批流程进行中...
                     </div>
-                  </div>
-                  <div v-else class="text-sm text-muted-foreground italic mt-1">
-                    当前处于待审批状态
                   </div>
                 </div>
               </div>
@@ -521,24 +535,24 @@ const removeRole = (role) => {
           </div>
         </div>
 
-        <SheetFooter class="pt-4 border-t" v-if="sheetType === 'new'">
-          <Button variant="outline" @click="closeSheet">取消</Button>
-          <Button @click="submitNewRequest">提交申请</Button>
+        <SheetFooter class="px-6 py-4 border-t shrink-0" v-if="sheetType === 'new'">
+          <Button variant="outline" @click="closeSheet" class="w-24">取消</Button>
+          <Button @click="submitNewRequest" class="w-32">提交申请</Button>
         </SheetFooter>
 
-        <SheetFooter class="pt-4 border-t flex-col sm:flex-row gap-2" v-if="sheetType === 'view' && selectedApp && selectedApp.status === 'pending'">
+        <SheetFooter class="px-6 py-4 border-t shrink-0 flex-col sm:flex-row gap-3" v-if="sheetType === 'view' && selectedApp && selectedApp.status === 'pending'">
              <Button 
-                class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white" 
+                class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm" 
                 @click="openDialog('approve', selectedApp)"
               >
-               <Check class="mr-2 h-4 w-4" /> 通过
+               <Check class="mr-2 h-4 w-4" /> 通过申请
              </Button>
              <Button 
-                class="flex-1" 
+                class="flex-1 shadow-sm" 
                 variant="destructive"
                 @click="openDialog('reject', selectedApp)"
               >
-               <X class="mr-2 h-4 w-4" /> 拒绝
+               <X class="mr-2 h-4 w-4" /> 拒绝申请
              </Button>
         </SheetFooter>
       </SheetContent>
