@@ -250,9 +250,13 @@ const togglePermission = (permId) => {
 <template>
   <!-- Teleport 按钮到面包屑区域 -->
   <Teleport to="#breadcrumb-actions" defer>
-    <Button size="sm" @click="openDialog('add')">
-      <Plus class="mr-2 h-4 w-4" /> 新增角色
-    </Button>
+    <div 
+      class="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+      @click="openDialog('add')"
+    >
+      <Plus class="h-4 w-4" />
+      <span>新增角色</span>
+    </div>
   </Teleport>
 
   <div class="h-full flex flex-col">

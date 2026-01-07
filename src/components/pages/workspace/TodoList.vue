@@ -245,17 +245,17 @@ const toggleOption = (key, option, isChecked) => {
   <Teleport to="#breadcrumb-actions" defer v-if="view === 'list'">
     <div class="flex items-center gap-2">
       <div class="text-center">
-        <div class="text-[10px] text-muted-foreground uppercase">Total</div>
+        <div class="text-[10px] text-muted-foreground uppercase">总任务</div>
         <div class="text-sm font-bold leading-none">{{ stats.total }}</div>
       </div>
       <div class="w-px h-6 bg-border"></div>
       <div class="text-center">
-        <div class="text-[10px] text-muted-foreground uppercase">Pending</div>
+        <div class="text-[10px] text-muted-foreground uppercase">待上传</div>
         <div class="text-sm font-bold text-amber-600 leading-none">{{ stats.pending }}</div>
       </div>
       <div class="w-px h-6 bg-border"></div>
       <div class="text-center">
-        <div class="text-[10px] text-muted-foreground uppercase">Done</div>
+        <div class="text-[10px] text-muted-foreground uppercase">已完成</div>
         <div class="text-sm font-bold text-emerald-600 leading-none">{{ stats.done }}</div>
       </div>
     </div>
@@ -296,15 +296,16 @@ const toggleOption = (key, option, isChecked) => {
                            <span>全选</span>
                          </div>
                          <DropdownMenuSeparator />
-                         <DropdownMenuCheckboxItem 
-                           v-for="p in PERIOD_OPTIONS" 
-                           :key="p" 
-                           :checked="filters.period.includes(p)"
-                           @select="(e) => { e.preventDefault(); toggleOption('period', p, !filters.period.includes(p)) }"
-                           class="text-xs"
-                         >
-                           {{ p }}
-                         </DropdownMenuCheckboxItem>
+                          <DropdownMenuCheckboxItem 
+                            v-for="p in PERIOD_OPTIONS" 
+                            :key="p" 
+                            :model-value="filters.period.includes(p)"
+                            @update:model-value="(checked) => toggleOption('period', p, checked)"
+                            @select.prevent
+                            class="text-xs"
+                          >
+                            {{ p }}
+                          </DropdownMenuCheckboxItem>
                        </DropdownMenuContent>
                      </DropdownMenu>
                   </div>
@@ -327,15 +328,16 @@ const toggleOption = (key, option, isChecked) => {
                            <span>全选</span>
                          </div>
                          <DropdownMenuSeparator />
-                         <DropdownMenuCheckboxItem 
-                           v-for="c in CLIENT_OPTIONS" 
-                           :key="c" 
-                           :checked="filters.client.includes(c)"
-                           @select="(e) => { e.preventDefault(); toggleOption('client', c, !filters.client.includes(c)) }"
-                           class="text-xs"
-                         >
-                           {{ c }}
-                         </DropdownMenuCheckboxItem>
+                          <DropdownMenuCheckboxItem 
+                            v-for="c in CLIENT_OPTIONS" 
+                            :key="c" 
+                            :model-value="filters.client.includes(c)"
+                            @update:model-value="(checked) => toggleOption('client', c, checked)"
+                            @select.prevent
+                            class="text-xs"
+                          >
+                            {{ c }}
+                          </DropdownMenuCheckboxItem>
                        </DropdownMenuContent>
                      </DropdownMenu>
                   </div>
@@ -358,15 +360,16 @@ const toggleOption = (key, option, isChecked) => {
                            <span>全选</span>
                          </div>
                          <DropdownMenuSeparator />
-                         <DropdownMenuCheckboxItem 
-                           v-for="p in PLATFORM_OPTIONS" 
-                           :key="p" 
-                           :checked="filters.platform.includes(p)"
-                           @select="(e) => { e.preventDefault(); toggleOption('platform', p, !filters.platform.includes(p)) }"
-                           class="text-xs"
-                         >
-                           {{ p }}
-                         </DropdownMenuCheckboxItem>
+                          <DropdownMenuCheckboxItem 
+                            v-for="p in PLATFORM_OPTIONS" 
+                            :key="p" 
+                            :model-value="filters.platform.includes(p)"
+                            @update:model-value="(checked) => toggleOption('platform', p, checked)"
+                            @select.prevent
+                            class="text-xs"
+                          >
+                            {{ p }}
+                          </DropdownMenuCheckboxItem>
                        </DropdownMenuContent>
                      </DropdownMenu>
                   </div>
@@ -389,15 +392,16 @@ const toggleOption = (key, option, isChecked) => {
                            <span>全选</span>
                          </div>
                          <DropdownMenuSeparator />
-                         <DropdownMenuCheckboxItem 
-                           v-for="s in availableShops" 
-                           :key="s" 
-                           :checked="filters.shop.includes(s)"
-                           @select="(e) => { e.preventDefault(); toggleOption('shop', s, !filters.shop.includes(s)) }"
-                           class="text-xs"
-                         >
-                           {{ s }}
-                         </DropdownMenuCheckboxItem>
+                          <DropdownMenuCheckboxItem 
+                            v-for="s in availableShops" 
+                            :key="s" 
+                            :model-value="filters.shop.includes(s)"
+                            @update:model-value="(checked) => toggleOption('shop', s, checked)"
+                            @select.prevent
+                            class="text-xs"
+                          >
+                            {{ s }}
+                          </DropdownMenuCheckboxItem>
                        </DropdownMenuContent>
                      </DropdownMenu>
                   </div>

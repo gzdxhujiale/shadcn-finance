@@ -11,7 +11,12 @@ import {
   Download, 
   TrendingUp, 
   TrendingDown,
+  User,
+  Calendar,
+  Wallet
 } from 'lucide-vue-next';
+import { CalendarDate, getLocalTimeZone, today } from '@internationalized/date'
+import DateRangeFilter from '@/components/shared/DateRangeFilter.vue'
 
 // UI Components
 import { Button } from '@/components/ui/button';
@@ -79,13 +84,21 @@ const COST_CENTERS = [
 ];
 
 // ================= 2. 状态管理 =================
-const selectedYear = ref('2025');
-const selectedMonth = ref('all');
+const dateRange = ref({
+  start: new CalendarDate(2025, 1, 1),
+  end: new CalendarDate(2025, 12, 31)
+})
 const selectedAmeba = ref(null);
 const currentRole = ref('admin'); 
 const activeTab = ref('statement'); // 详情页 Tab 状态: statement | trend | structure
 const detailModalItem = ref(null);
 const modalVisible = ref(false);
+
+// 日期筛选应用回调
+const onDateRangeApply = (range) => {
+  dateRange.value = range
+  console.log('日期范围已更新:', range)
+}
 
 // 图表 DOM 引用
 const trendChartRef = ref(null);
@@ -96,16 +109,27 @@ let pieChartInstance = null;
 // ================= 3. 计算属性与逻辑 =================
 const isSensitiveHidden = computed(() => currentRole.value === 'operation');
 
-const periodLabel = computed(() => 
-  `${selectedYear.value}年 ${selectedMonth.value === 'all' ? '全年' : selectedMonth.value + '月'}`
-);
+const periodLabel = computed(() => {
+  if (!dateRange.value.start || !dateRange.value.end) return '全年'
+  const startMonth = dateRange.value.start.month
+  const endMonth = dateRange.value.end.month
+  if (startMonth === 1 && endMonth === 12) return `${dateRange.value.start.year}年 全年`
+  return `${dateRange.value.start.year}年 ${startMonth}月-${endMonth}月`
+});
 
 // 工具函数：数字格式化
 const safeLocaleString = (val) => (val !== undefined && val !== null) ? val.toLocaleString() : '0';
 
 // 主列表数据计算
 const currentAmebaData = computed(() => {
-  const factor = selectedMonth.value === 'all' ? 1 : (1/12);
+  // 根据日期范围计算比例因子
+  let factor = 1
+  if (dateRange.value.start && dateRange.value.end) {
+    const startMonth = dateRange.value.start.month
+    const endMonth = dateRange.value.end.month
+    const monthsDiff = endMonth - startMonth + 1
+    factor = monthsDiff / 12
+  }
   const allDepts = [...EXTRACTED_OPS_DATA, ...COST_CENTERS];
 
   return allDepts.map((dept, index) => {
@@ -138,6 +162,8 @@ const currentAmebaData = computed(() => {
 
 // 全局 KPI
 const totalProfit = computed(() => currentAmebaData.value.reduce((acc, curr) => acc + curr.profit, 0));
+const totalRevenue = computed(() => currentAmebaData.value.reduce((acc, curr) => acc + curr.income, 0));
+const totalCost = computed(() => currentAmebaData.value.reduce((acc, curr) => acc + curr.totalCost, 0));
 const avgRatio = computed(() => {
   const count = currentAmebaData.value.filter(d => d.income > 0).length;
   if (count === 0) return 0;
@@ -155,6 +181,24 @@ const metricCards = computed(() => [
     bgClass: 'bg-white', 
     textClass: 'text-gray-600', 
     iconClass: 'text-blue-600 bg-blue-50' 
+  },
+  { 
+    key: 'revenue', 
+    title: '总收入', 
+    value: isSensitiveHidden.value ? '***' : `¥ ${safeLocaleString(totalRevenue.value)}`, 
+    icon: TrendingUp, 
+    bgClass: 'bg-white', 
+    textClass: 'text-gray-600', 
+    iconClass: 'text-blue-600 bg-blue-50' 
+  },
+  { 
+    key: 'cost', 
+    title: '总成本', 
+    value: isSensitiveHidden.value ? '***' : `¥ ${safeLocaleString(totalCost.value)}`, 
+    icon: TrendingDown, 
+    bgClass: 'bg-white', 
+    textClass: 'text-gray-600', 
+    iconClass: 'text-red-500 bg-red-50' 
   },
   { 
     key: 'profit', 
@@ -181,9 +225,17 @@ const detailData = computed(() => {
   if (!selectedAmeba.value) return null;
   const item = selectedAmeba.value;
   
+  // 根据日期范围计算因子
+  let monthsCount = 12
+  if (dateRange.value.start && dateRange.value.end) {
+    const startMonth = dateRange.value.start.month
+    const endMonth = dateRange.value.end.month
+    monthsCount = endMonth - startMonth + 1
+  }
+  
   // 模拟月度趋势
   const trend = Array.from({ length: 12 }, (_, i) => {
-    const baseIncome = item.income / (selectedMonth.value === 'all' ? 1 : 12);
+    const baseIncome = item.income / (monthsCount === 12 ? 1 : 12);
     const mIncome = Math.floor((baseIncome / 12) * (0.8 + Math.random() * 0.4));
     const mCost = Math.floor(mIncome * 0.85);
     return { 
@@ -397,33 +449,10 @@ onUnmounted(() => {
 
 <template>
   <Teleport to="#breadcrumb-actions" defer>
-    <div class="flex items-center gap-2">
-       <div class="flex items-center gap-2 px-3 py-1 bg-muted/50 rounded-full text-sm">
-          <span class="text-muted-foreground">年份</span>
-          <Select v-model="selectedYear">
-            <SelectTrigger class="h-6 w-20 border-0 bg-transparent p-0 text-foreground font-medium focus:ring-0">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="2025">2025</SelectItem>
-              <SelectItem value="2024">2024</SelectItem>
-            </SelectContent>
-          </Select>
-       </div>
-
-       <div class="flex items-center gap-2 px-3 py-1 bg-muted/50 rounded-full text-sm">
-          <span class="text-muted-foreground">期间</span>
-          <Select v-model="selectedMonth">
-            <SelectTrigger class="h-6 w-16 border-0 bg-transparent p-0 text-foreground font-medium focus:ring-0">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全年</SelectItem>
-              <SelectItem v-for="m in 12" :key="m" :value="String(m)">{{ m }}月</SelectItem>
-            </SelectContent>
-          </Select>
-       </div>
-    </div>
+    <DateRangeFilter 
+      v-model="dateRange" 
+      @apply="onDateRangeApply" 
+    />
   </Teleport>
 
   <div class="h-[calc(100vh-4rem)] overflow-hidden bg-background">
@@ -431,7 +460,7 @@ onUnmounted(() => {
     <div v-if="!selectedAmeba" class="h-full p-6 overflow-auto space-y-4">
       
       <!-- KPI 卡片 -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card 
           v-for="metric in metricCards" 
           :key="metric.key" 
@@ -510,43 +539,58 @@ onUnmounted(() => {
     <!-- 2. 详情视图 -->
     <div v-else class="h-full flex flex-col overflow-hidden">
        <!-- 详情页头部 -->
-       <div class="px-8 py-6 border-b bg-card shrink-0">
-          <div class="flex justify-between items-start mb-4">
-            <div>
-               <h2 class="text-2xl font-bold tracking-tight">{{ selectedAmeba.group }}</h2>
-               <p class="text-muted-foreground mt-1">{{ periodLabel }} 经营核算报表</p>
-            </div>
-            <Button variant="outline" size="sm" class="gap-2">
-               <Download class="w-4 h-4" /> 导出报表
-            </Button>
+       <!-- 详情页头部 (优化版) -->
+       <div class="px-6 py-4 border-b bg-card/50 backdrop-blur-sm shrink-0 z-10 relative overflow-hidden group">
+          <!-- 背景装饰 -->
+          <div class="absolute top-0 right-0 p-4 -mr-4 -mt-4 opacity-[0.03] pointer-events-none">
+              <Layers class="w-32 h-32" />
           </div>
-          <div class="grid grid-cols-1 md:grid-cols-4 gap-6 text-sm">
-             <div class="flex items-center gap-3">
-                <span class="text-muted-foreground">负责人:</span>
-                <div class="flex items-center gap-2">
-                   <Avatar class="h-6 w-6">
-                      <AvatarFallback class="bg-blue-100 text-blue-700 text-xs">{{ selectedAmeba.manager[0] }}</AvatarFallback>
-                   </Avatar>
-                   <span class="font-medium">{{ selectedAmeba.manager }}</span>
-                </div>
-             </div>
-             <div class="flex items-center gap-3">
-                <span class="text-muted-foreground">核算周期:</span>
-                <span class="font-medium">{{ periodLabel }}</span>
-             </div>
-             <div class="flex items-center gap-3">
-                <span class="text-muted-foreground">核算币种:</span>
-                <span class="font-medium">CNY (人民币)</span>
-             </div>
-             <div class="flex items-center gap-3">
-                <span class="text-muted-foreground">报表状态:</span>
-                <Badge variant="secondary" class="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 font-normal border-0">已结账</Badge>
-             </div>
+
+          <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between relative">
+            <div class="flex items-center gap-4">
+              <div class="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                 <Layers class="w-5 h-5" />
+              </div>
+              <div class="space-y-1">
+                 <div class="flex items-center gap-3">
+                    <h2 class="text-lg font-bold tracking-tight">{{ selectedAmeba.group }}</h2>
+                    <Badge variant="secondary" class="h-5 px-2 text-[10px] bg-emerald-50 text-emerald-700 border-emerald-100">
+                      已结账
+                    </Badge>
+                 </div>
+                 <div class="flex items-center gap-3 text-xs text-muted-foreground font-medium">
+                    <div class="flex items-center gap-1.5 hover:text-foreground transition-colors">
+                       <User class="w-3.5 h-3.5" />
+                       <span class="truncate max-w-[100px]">{{ selectedAmeba.manager }}</span>
+                    </div>
+                    <span class="w-px h-3 bg-border"></span>
+                    <div class="flex items-center gap-1.5 hover:text-foreground transition-colors">
+                       <Calendar class="w-3.5 h-3.5" />
+                       <span>{{ periodLabel }}</span>
+                    </div>
+                    <span class="w-px h-3 bg-border"></span>
+                    <div class="flex items-center gap-1.5 hover:text-foreground transition-colors">
+                       <Wallet class="w-3.5 h-3.5" />
+                       <span>CNY</span>
+                    </div>
+                 </div>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+               <div class="hidden lg:flex flex-col items-end mr-2 text-xs text-muted-foreground">
+                  <span>最后更新</span>
+                  <span class="font-mono">{{ new Date().toLocaleDateString() }}</span>
+               </div>
+               <Button variant="outline" size="sm" class="h-8 text-xs gap-1.5 bg-background shadow-sm hover:bg-accent hover:text-accent-foreground">
+                  <Download class="w-3.5 h-3.5" /> 导出报表
+               </Button>
+            </div>
           </div>
        </div>
 
        <!-- 详情内容区 Tab -->
-       <div class="flex-1 overflow-hidden p-6 bg-muted/20">
+       <div class="flex-1 min-h-0 overflow-hidden p-6 bg-muted/20">
           <Tabs v-model="activeTab" class="h-full flex flex-col" @update:modelValue="handleTabChange">
              <TabsList class="w-fit mb-4">
                 <TabsTrigger value="statement">经营损益表 (P&L)</TabsTrigger>
@@ -554,9 +598,9 @@ onUnmounted(() => {
                 <TabsTrigger value="structure">成本结构分析</TabsTrigger>
              </TabsList>
 
-             <div class="flex-1 overflow-hidden bg-background rounded-lg border shadow-sm">
+             <div class="flex-1 min-h-0 overflow-hidden bg-background rounded-lg border shadow-sm">
                 <!-- Tab 1: P&L Table -->
-                <TabsContent value="statement" class="h-full mt-0 overflow-auto">
+                <TabsContent value="statement" class="h-full mt-0 overflow-auto data-[state=active]:flex data-[state=active]:flex-col">
                    <Table>
                       <TableHeader class="sticky top-0 bg-background z-10">
                          <TableRow>
@@ -608,13 +652,13 @@ onUnmounted(() => {
                 </TabsContent>
 
                 <!-- Tab 2: Trend Chart -->
-                <TabsContent value="trend" class="h-full mt-0 p-6 flex items-center justify-center">
-                   <div ref="trendChartRef" class="w-full h-[500px]"></div>
+                <TabsContent value="trend" class="h-full mt-0 p-6 data-[state=active]:flex data-[state=active]:flex-col">
+                   <div ref="trendChartRef" class="w-full flex-1 min-h-[400px]"></div>
                 </TabsContent>
 
                 <!-- Tab 3: Structure Chart -->
-                <TabsContent value="structure" class="h-full mt-0 p-6 flex items-center justify-center">
-                   <div ref="pieChartRef" class="w-[80%] h-[500px]"></div>
+                <TabsContent value="structure" class="h-full mt-0 p-6 data-[state=active]:flex data-[state=active]:items-center data-[state=active]:justify-center">
+                   <div ref="pieChartRef" class="w-[80%] h-full min-h-[400px]"></div>
                 </TabsContent>
              </div>
           </Tabs>

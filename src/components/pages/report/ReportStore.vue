@@ -1,8 +1,8 @@
 <script setup>
 import { ref, computed, watch, reactive, nextTick, onUnmounted } from 'vue'
 import * as echarts from 'echarts'
-import { Store, TrendingUp, TrendingDown, DollarSign, ShoppingCart, Users, Eye, ChevronRight, Download, ChevronLeft, ArrowUpDown, ArrowUp, ArrowDown, ListFilter, CalendarDays, CircleHelp } from 'lucide-vue-next'
-import { RangeCalendar } from '@/components/ui/range-calendar'
+import { Store, TrendingUp, TrendingDown, DollarSign, ShoppingCart, Users, Eye, ChevronRight, Download, ChevronLeft, ArrowUpDown, ArrowUp, ArrowDown, ListFilter, CircleHelp } from 'lucide-vue-next'
+import DateRangeFilter from '@/components/shared/DateRangeFilter.vue'
 // 导入新的指标配置（包含布局）
 import { storeListConfig, storeDetailConfig } from '@/config/storeMetrics'
 import { CalendarDate, DateFormatter, getLocalTimeZone } from '@internationalized/date'
@@ -70,7 +70,13 @@ const dateRange = ref({
   start: new CalendarDate(2025, 1, 1),
   end: new CalendarDate(2025, 12, 31)
 })
-const showDatePicker = ref(false)
+
+// 日期筛选应用回调
+const onDateRangeApply = (range) => {
+  dateRange.value = range
+  // 这里可以添加数据刷新逻辑
+  console.log('日期范围已更新:', range)
+}
 const df = new DateFormatter('zh-CN', { dateStyle: 'short' })
 
 // 当前时间维度描述
@@ -826,33 +832,16 @@ onUnmounted(() => {
 
 <template>
   <Teleport to="#breadcrumb-actions" defer>
-    <div class="flex items-center gap-2">
-      <Popover v-model:open="showDatePicker">
-        <PopoverTrigger as-child>
-          <Button variant="outline" size="sm" class="h-8 gap-2 px-3 bg-muted/50 hover:bg-muted border-0 rounded-full">
-            <CalendarDays class="h-4 w-4 text-primary" />
-            <span class="text-sm font-medium">
-              {{ df.format(dateRange.start.toDate(getLocalTimeZone())) }} - 
-              {{ df.format(dateRange.end.toDate(getLocalTimeZone())) }}
-            </span>
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent class="w-auto p-0" align="start">
-          <RangeCalendar 
-            v-model="dateRange" 
-            :number-of-months="2"
-            class="rounded-md border"
-            @update:model-value="showDatePicker = false"
-          />
-        </PopoverContent>
-      </Popover>
-    </div>
+    <DateRangeFilter 
+      v-model="dateRange" 
+      @apply="onDateRangeApply" 
+    />
   </Teleport>
 
-  <div class="h-full p-6 overflow-auto">
+  <div class="h-[calc(100vh-4rem)] overflow-hidden bg-background">
     <transition name="fade" mode="out-in">
       <!-- 店铺列表视图 -->
-      <div v-if="!currentStore" key="list" class="space-y-4">
+      <div v-if="!currentStore" key="list" class="h-full p-6 overflow-auto space-y-4">
         <!-- 核心指标卡片 - 店铺列表概览 (配置驱动 + 动态布局) -->
         <div 
           class="grid gap-4" 
@@ -1037,7 +1026,7 @@ onUnmounted(() => {
       </div>
 
       <!-- 店铺详情视图 -->
-      <div v-else key="detail" class="space-y-6">
+      <div v-else key="detail" class="h-full p-6 overflow-auto space-y-6">
         <!-- 时间维度导航条 -->
         <div class="flex items-center justify-between bg-gradient-to-r from-slate-50 to-blue-50 dark:from-slate-900 dark:to-blue-900/30 rounded-xl p-4 border">
           <div class="flex items-center gap-3">

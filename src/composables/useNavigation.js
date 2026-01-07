@@ -4,6 +4,7 @@ import { ref, computed } from 'vue'
 const currentMainNav = ref('工作台')
 const currentSubNav = ref('待办清单')
 const detailTitle = ref(null) // 存储详情页标题（第三级面包屑）
+const historyFilter = ref(null) // 存储要传递给历史记录页面的筛选参数
 
 /**
  * 导航状态管理 Composable
@@ -19,6 +20,24 @@ export function useNavigation() {
     // 设置详情标题（用于第三级面包屑）
     const setDetailTitle = (title) => {
         detailTitle.value = title
+    }
+
+    // 设置历史记录筛选参数
+    const setHistoryFilter = (filter) => {
+        historyFilter.value = filter
+    }
+
+    // 清除历史记录筛选参数
+    const clearHistoryFilter = () => {
+        historyFilter.value = null
+    }
+
+    // 导航到历史记录页面并设置筛选
+    const navigateToHistory = (shop) => {
+        historyFilter.value = { shop }
+        currentMainNav.value = '工作台'
+        currentSubNav.value = '历史记录'
+        detailTitle.value = null
     }
 
     // 计算面包屑数据
@@ -63,9 +82,13 @@ export function useNavigation() {
         currentMainNav,
         currentSubNav,
         detailTitle,
+        historyFilter,
         breadcrumbs,
         currentPage,
         setNavigation,
         setDetailTitle,
+        setHistoryFilter,
+        clearHistoryFilter,
+        navigateToHistory,
     }
 }

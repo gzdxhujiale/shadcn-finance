@@ -17,7 +17,7 @@ const props = defineProps({
   goBack: { type: Function, required: true }
 })
 
-const { setDetailTitle } = useNavigation()
+const { setDetailTitle, navigateToHistory } = useNavigation()
 
 // 生成文件名
 const generateFileName = (billType) => {
@@ -47,6 +47,11 @@ const handleCopyFileName = async (file) => {
   }
 }
 
+// 跳转到历史记录
+const goToHistory = () => {
+  navigateToHistory(props.selectedItem.shop)
+}
+
 // 挂载时更新面包屑
 onMounted(() => {
   setDetailTitle(props.selectedItem.shop)
@@ -62,10 +67,13 @@ onUnmounted(() => {
   <div class="detail-wrapper p-6 space-y-6">
     <!-- 历史记录按钮显示在面包屑右侧 -->
     <Teleport to="#breadcrumb-actions" defer>
-      <Button variant="outline" @click="() => console.log('查看历史记录')">
-        <Clock class="mr-2 h-4 w-4" />
-        历史记录
-      </Button>
+      <div 
+        class="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+        @click="goToHistory"
+      >
+        <Clock class="h-4 w-4" />
+        <span>历史记录</span>
+      </div>
     </Teleport>
 
     <!-- 栅格布局 -->

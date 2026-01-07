@@ -1,6 +1,8 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { Building2, ChevronDown, ChevronRight, Expand, Shrink, Info, Pencil, Save, Users, Folders } from 'lucide-vue-next'
+import { CalendarDate } from '@internationalized/date'
+import DateRangeFilter from '@/components/shared/DateRangeFilter.vue'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
@@ -41,11 +43,19 @@ import {
 } from '@/components/ui/tooltip'
 
 // --- 筛选状态 ---
-const selectedYear = ref('2025')
-const selectedMonth = ref('all')
+const dateRange = ref({
+  start: new CalendarDate(2025, 1, 1),
+  end: new CalendarDate(2025, 12, 31)
+})
 const activeTab = ref('balance')
 const expandedKeys = ref(new Set())
 const isBudgetEditing = ref(false)
+
+// 日期筛选应用回调
+const onDateRangeApply = (range) => {
+  dateRange.value = range
+  console.log('日期范围已更新:', range)
+}
 
 // --- 财务数据 ---
 const FULL_COMPANY_REPORTS = {
@@ -146,7 +156,14 @@ const FULL_COMPANY_REPORTS = {
 const AMEBA_DEPARTMENTS = ['运营部-淘宝', '运营部-抖音', '运营部-快手', '商品部', '开发部', '产研部', '客服部', '仓储部', '人事部', '财务部']
 
 // --- 计算属性 ---
-const dateFactor = computed(() => selectedMonth.value === 'all' ? 1 : 1 / 12)
+// 根据日期范围计算比例因子
+const dateFactor = computed(() => {
+  if (!dateRange.value.start || !dateRange.value.end) return 1
+  const startMonth = dateRange.value.start.month
+  const endMonth = dateRange.value.end.month
+  const monthsDiff = endMonth - startMonth + 1
+  return monthsDiff / 12
+})
 const scaleValue = (val) => Math.floor(val * dateFactor.value)
 
 const flattenData = (data, parentExpanded = true) => {
@@ -344,38 +361,16 @@ watch(activeTab, () => {
 </script>
 
 <template>
-  <!-- 筛选器 Teleport 到面包屑右侧 -->
   <Teleport to="#breadcrumb-actions" defer>
-    <div class="flex items-center gap-2">
-      <div class="flex items-center gap-1 px-3 py-1 bg-muted/50 rounded-full text-sm">
-        <span class="text-muted-foreground">年份</span>
-        <Select v-model="selectedYear">
-          <SelectTrigger class="h-6 w-16 border-0 bg-transparent p-0 text-sm font-medium">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="2025">2025</SelectItem>
-            <SelectItem value="2024">2024</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div class="flex items-center gap-1 px-3 py-1 bg-muted/50 rounded-full text-sm">
-        <span class="text-muted-foreground">期间</span>
-        <Select v-model="selectedMonth">
-          <SelectTrigger class="h-6 w-16 border-0 bg-transparent p-0 text-sm font-medium">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">全年</SelectItem>
-            <SelectItem v-for="m in 12" :key="m" :value="String(m)">{{ m }}月</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-    </div>
+    <DateRangeFilter 
+      v-model="dateRange" 
+      @apply="onDateRangeApply" 
+    />
   </Teleport>
 
-  <div class="h-full p-6">
-    <div class="bg-background rounded-lg border h-full flex flex-col">
+  <div class="h-[calc(100vh-4rem)] overflow-hidden bg-background">
+    <div class="h-full p-6 overflow-auto">
+      <div class="bg-background rounded-lg border h-full flex flex-col">
       <!-- Tabs -->
       <Tabs v-model="activeTab" class="flex-1 flex flex-col">
         <div class="flex items-center justify-between border-b px-6">
@@ -692,6 +687,7 @@ watch(activeTab, () => {
           </div>
         </TabsContent>
       </Tabs>
+    </div>
     </div>
   </div>
 

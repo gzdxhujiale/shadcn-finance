@@ -121,6 +121,8 @@ const renderEChart = (container, aggregatedData, metrics, chartType) => {
     
     if (needRecreate) {
       if (chartInstance) { chartInstance.dispose(); chartInstance = null }
+      // 清空容器
+      container.innerHTML = ''
       const chartDiv = document.createElement('div')
       chartDiv.style.width = '100%'
       chartDiv.style.height = '100%'
@@ -130,10 +132,16 @@ const renderEChart = (container, aggregatedData, metrics, chartType) => {
       currentChartType = chartType
     }
     
+    // 确定图表类型
+    const getSeriesType = () => {
+      if (chartType === 'bar') return 'bar'
+      return 'line' // line 和 area 都使用 line 类型，area 通过 areaStyle 区分
+    }
+    
     const isBar = chartType === 'bar'
     const seriesData = metrics.map(m => ({
       name: m.key,
-      type: isBar ? 'bar' : 'line',
+      type: getSeriesType(),
       data: keys.map(k => groups[k].values[m.key]),
       smooth: !isBar,
       areaStyle: chartType === 'area' ? { opacity: 0.5 } : undefined,
@@ -245,12 +253,30 @@ const renderViz = () => {
     }
 
     const isTable = safeState.value.chartType === 'table'
-    if (isTable || gridApi) vizContainer.value.innerHTML = '' // Clear if switching
+    
+    // 切换到表格时：清理图表实例
+    if (isTable && chartInstance) {
+        chartInstance.dispose()
+        chartInstance = null
+        currentChartType = null
+        vizContainer.value.innerHTML = ''
+    }
+    
+    // 切换到图表时：清理表格实例
+    if (!isTable && gridApi) {
+        gridApi.destroy()
+        gridApi = null
+        vizContainer.value.innerHTML = ''
+    }
     
     const aggregatedData = aggregateData(aq, allDims, metrics)
+    
     if (isTable) {
+        // 表格模式每次都重新创建
+        vizContainer.value.innerHTML = ''
         renderAgGrid(vizContainer.value, aggregatedData, allDims, metrics)
     } else {
+        // 图表模式：复用或创建实例
         renderEChart(vizContainer.value, aggregatedData, metrics, safeState.value.chartType)
     }
 }
@@ -307,10 +333,28 @@ onMounted(() => {
 
       <!-- Toolbar Actions Teleported to Breadcrumb -->
       <Teleport to="#breadcrumb-actions">
-        <div class="flex items-center gap-2">
-            <Button variant="outline" size="sm" class="h-8" @click="exportData"><Download class="w-3.5 h-3.5 mr-2"/>导出</Button>
-            <Button variant="outline" size="sm" class="h-8" @click="renderViz"><RefreshCw class="w-3.5 h-3.5 mr-2"/>刷新</Button>
-            <Button variant="destructive" size="sm" class="h-8" @click="() => { state.cols=[]; state.rows=[]; state.filters={}; }"><Trash2 class="w-3.5 h-3.5 mr-2"/>清空</Button>
+        <div class="flex items-center gap-4">
+            <div 
+              class="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+              @click="exportData"
+            >
+              <Download class="w-4 h-4"/>
+              <span>导出</span>
+            </div>
+            <div 
+              class="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+              @click="renderViz"
+            >
+              <RefreshCw class="w-4 h-4"/>
+              <span>刷新</span>
+            </div>
+            <div 
+              class="flex items-center gap-1.5 text-sm text-destructive/70 hover:text-destructive cursor-pointer transition-colors"
+              @click="() => { state.cols=[]; state.rows=[]; state.filters={}; }"
+            >
+              <Trash2 class="w-4 h-4"/>
+              <span>清空</span>
+            </div>
         </div>
       </Teleport>
 
@@ -393,16 +437,16 @@ onMounted(() => {
                                         <div class="p-2">
                                             <div class="flex items-center space-x-2 mb-2">
                                                 <Checkbox 
-                                                    :checked="state.filters[fieldKey]?.selected?.length === state.filters[fieldKey]?.options?.length"
-                                                    @update:checked="toggleSelectAll(fieldKey)"
+                                                    :model-value="state.filters[fieldKey]?.selected?.length === state.filters[fieldKey]?.options?.length"
+                                                    @update:model-value="toggleSelectAll(fieldKey)"
                                                 />
                                                 <label class="text-sm font-medium">全选</label>
                                             </div>
                                             <div class="max-h-48 overflow-y-auto space-y-1">
                                                 <div v-for="opt in state.filters[fieldKey]?.options" :key="opt" class="flex items-center space-x-2">
                                                      <Checkbox 
-                                                        :checked="state.filters[fieldKey]?.selected?.includes(opt)"
-                                                        @update:checked="toggleOption(fieldKey, opt)"
+                                                        :model-value="state.filters[fieldKey]?.selected?.includes(opt)"
+                                                        @update:model-value="toggleOption(fieldKey, opt)"
                                                      />
                                                      <label class="text-xs truncate">{{ opt }}</label>
                                                 </div>
@@ -412,7 +456,7 @@ onMounted(() => {
                                 </DropdownMenu>
                            </template>
                            <template v-else>
-                                <!-- Measure Filter (Simplified) -->
+                                <!-- Measure Filter (Full) -->
                                 <div class="p-2">
                                     <div class="flex items-center justify-between mb-2">
                                         <span class="text-xs font-medium">{{ fieldKey }}</span>
@@ -427,15 +471,40 @@ onMounted(() => {
                                             <SelectItem value="all">不筛选</SelectItem>
                                             <SelectItem value="gt">大于</SelectItem>
                                             <SelectItem value="lt">小于</SelectItem>
+                                            <SelectItem value="eq">等于</SelectItem>
+                                            <SelectItem value="between">区间</SelectItem>
                                         </SelectContent>
                                     </Select>
+                                    <!-- 单值输入 -->
                                     <Input 
-                                        v-if="['gt','lt'].includes(state.filters[fieldKey]?.operator)"
+                                        v-if="['gt','lt','eq'].includes(state.filters[fieldKey]?.operator)"
                                         type="number" 
                                         class="h-7 text-xs mt-2" 
                                         :model-value="state.filters[fieldKey]?.value"
-                                        @update:model-value="(v) => updateMeasureFilter(fieldKey, state.filters[fieldKey]?.operator, Number(v), 0,0)"
+                                        @update:model-value="(v) => updateMeasureFilter(fieldKey, state.filters[fieldKey]?.operator, Number(v), state.filters[fieldKey]?.minValue, state.filters[fieldKey]?.maxValue)"
+                                        placeholder="输入数值"
                                     />
+                                    <!-- 区间输入 -->
+                                    <div v-if="state.filters[fieldKey]?.operator === 'between'" class="space-y-2 mt-2">
+                                        <Input 
+                                            type="number" 
+                                            class="h-7 text-xs" 
+                                            :model-value="state.filters[fieldKey]?.minValue"
+                                            @update:model-value="(v) => updateMeasureFilter(fieldKey, 'between', state.filters[fieldKey]?.value, Number(v), state.filters[fieldKey]?.maxValue)"
+                                            placeholder="最小值"
+                                        />
+                                        <Input 
+                                            type="number" 
+                                            class="h-7 text-xs" 
+                                            :model-value="state.filters[fieldKey]?.maxValue"
+                                            @update:model-value="(v) => updateMeasureFilter(fieldKey, 'between', state.filters[fieldKey]?.value, state.filters[fieldKey]?.minValue, Number(v))"
+                                            placeholder="最大值"
+                                        />
+                                    </div>
+                                    <!-- 数据范围信息 -->
+                                    <div class="text-[10px] text-muted-foreground mt-2 pt-2 border-t">
+                                        范围: {{ Math.round(state.filters[fieldKey]?.rangeMin || 0).toLocaleString() }} ~ {{ Math.round(state.filters[fieldKey]?.rangeMax || 0).toLocaleString() }}
+                                    </div>
                                 </div>
                            </template>
                        </div>

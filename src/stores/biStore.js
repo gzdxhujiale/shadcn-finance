@@ -1,11 +1,11 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, reactive, shallowRef } from 'vue'
 
 export const useBiStore = defineStore('bi', () => {
     // State
     const rawData = ref([])
-    const dimensions = ref([])
-    const measures = ref([])
+    const dimensions = shallowRef([])
+    const measures = shallowRef([])
 
     // --- 日期聚合工具函数 ---
     const aggregateDate = (dateStr, aggType) => {
@@ -34,19 +34,19 @@ export const useBiStore = defineStore('bi', () => {
         colorPalette: 'default'
     })
 
-    const chartTypes = [
-        { label: '表格', value: 'table' },
+    const chartTypes = ref([
         { label: '柱状图', value: 'bar' },
         { label: '折线图', value: 'line' },
         { label: '面积图', value: 'area' },
-    ]
+        { label: '明细表', value: 'table' },
+    ])
 
-    const dateAggOptions = [
-        { label: '年', value: 'year' },
-        { label: '季度', value: 'quarter' },
-        { label: '月', value: 'month' },
-        { label: '日', value: 'day' }
-    ]
+    const dateAggOptions = ref([
+        { value: 'day', label: '日' },
+        { value: 'month', label: '月' },
+        { value: 'quarter', label: '季度' },
+        { value: 'year', label: '年' }
+    ])
 
     // Computed
     const activeFilters = computed(() => {
@@ -65,34 +65,40 @@ export const useBiStore = defineStore('bi', () => {
     function initFilter(key, field, data) {
         if (state.filters[key]) return
 
-        if (field.fieldType === 'dim' || field.fieldType === 'string' || field.fieldType === 'date') {
+        const fieldType = field ? field.fieldType : 'dim'
+
+        if (fieldType === 'measure') {
+            // 度量字段：创建数值范围筛选
+            const values = data.map(row => row[key]).filter(v => v !== null && v !== undefined && !isNaN(v))
+            const min = Math.min(...values)
+            const max = Math.max(...values)
+
+            state.filters[key] = {
+                fieldType: 'measure',
+                operator: 'all',
+                value: null,
+                minValue: null,
+                maxValue: null,
+                rangeMin: min,
+                rangeMax: max
+            }
+        } else {
+            // 维度字段：创建多选筛选
             let uniqueValues = []
+
             // 特殊处理：如果是日期字段且有聚合，使用聚合后的值
-            if (field.key === '日期' && field.dateAgg) {
-                uniqueValues = [...new Set(data.map(row => aggregateDate(row[key], field.dateAgg)))].sort()
+            if (field && field.key === '日期' && field.dateAgg) {
+                uniqueValues = [...new Set(data.map(row => aggregateDate(row[key], field.dateAgg)))].filter(v => v !== null && v !== undefined)
             } else {
-                uniqueValues = [...new Set(data.map(item => item[key]))].sort()
+                uniqueValues = [...new Set(data.map(item => item[key]))].filter(v => v !== null && v !== undefined)
             }
 
             state.filters[key] = {
                 fieldType: 'dim',
                 selected: [...uniqueValues],
-                options: uniqueValues,
-                dateAgg: field.dateAgg,
+                options: uniqueValues.sort(),
+                dateAgg: field?.dateAgg,
                 rangeMin: 0, rangeMax: 0
-            }
-        } else {
-            const values = data.map(d => d[key])
-            const min = Math.min(...values)
-            const max = Math.max(...values)
-            state.filters[key] = {
-                fieldType: 'measure',
-                operator: 'all',
-                value: 0,
-                minValue: min,
-                maxValue: max,
-                rangeMin: min,
-                rangeMax: max
             }
         }
     }
@@ -107,7 +113,7 @@ export const useBiStore = defineStore('bi', () => {
     }
 
     function updateMeasureFilter(key, operator, value, min, max) {
-        if (state.filters[key]) {
+        if (state.filters[key] && state.filters[key].fieldType === 'measure') {
             state.filters[key].operator = operator
             state.filters[key].value = value
             state.filters[key].minValue = min
@@ -142,102 +148,122 @@ export const useBiStore = defineStore('bi', () => {
         if (state.filters[key] && state.filters[key].fieldType === 'dim') {
             const uniqueValues = [...new Set(data.map(row => {
                 return aggregateDate(row[key], newAgg)
-            }))].sort()
+            }))].filter(v => v !== null && v !== undefined)
 
-            state.filters[key].options = uniqueValues
+            state.filters[key].options = uniqueValues.sort()
             state.filters[key].selected = [...uniqueValues] // 重新全选
             state.filters[key].dateAgg = newAgg
         }
     }
 
     function aggregateData(aq, dims, metrics) {
-        if (!aq || !rawData.value.length) return { keys: [], groups: {} }
+        if (!aq || rawData.value.length === 0) {
+            return { keys: [], groups: {} }
+        }
 
-        // 1. Filter
-        let data = rawData.value.filter(row => {
-            for (const key of Object.keys(state.filters)) {
-                const f = state.filters[key]
-                let val = row[key] // Check raw value first
+        // 1. 筛选数据
+        let filteredData = rawData.value.filter(row => {
+            for (const [key, filter] of Object.entries(state.filters)) {
+                if (filter.fieldType === 'measure') {
+                    const value = parseFloat(row[key])
+                    if (isNaN(value)) continue
 
-                if (f.fieldType === 'dim') {
-                    // 如果是日期且有聚合，需要先聚合再对比
-                    if (f.dateAgg && key === '日期') {
-                        val = aggregateDate(val, f.dateAgg)
+                    switch (filter.operator) {
+                        case 'gt':
+                            if (filter.value !== null && value <= filter.value) return false
+                            break
+                        case 'lt':
+                            if (filter.value !== null && value >= filter.value) return false
+                            break
+                        case 'eq':
+                            if (filter.value !== null && value !== filter.value) return false
+                            break
+                        case 'between':
+                            if (filter.minValue !== null && value < filter.minValue) return false
+                            if (filter.maxValue !== null && value > filter.maxValue) return false
+                            break
                     }
-                    if (!f.selected.includes(val)) return false
                 } else {
-                    // Measure filter logic...
-                    if (f.operator === 'gt' && !(val > f.value)) return false
-                    if (f.operator === 'lt' && !(val < f.value)) return false
-                    if (f.operator === 'eq' && !(val == f.value)) return false
-                    if (f.operator === 'between' && !(val >= f.minValue && val <= f.maxValue)) return false
+                    // 维度筛选逻辑
+                    if (!filter.selected || filter.selected.length === 0) {
+                        return false
+                    }
+
+                    let valueToCheck = row[key]
+                    if (filter.dateAgg && key === '日期') {
+                        valueToCheck = aggregateDate(row[key], filter.dateAgg)
+                    }
+
+                    if (!filter.selected.includes(valueToCheck)) {
+                        return false
+                    }
                 }
             }
             return true
         })
 
-        // 2. Pre-process for date aggregation
-        const groupKeys = []
+        // 2. 创建 Arquero 表
+        let table = aq.from(filteredData)
+
+        // 3. 派生字段（日期聚合）- 使用 aq.escape 避免列名解析问题
         dims.forEach(d => {
             if (d.key === '日期' && d.dateAgg) {
-                groupKeys.push(`${d.key}_${d.dateAgg}`)
-            } else {
-                groupKeys.push(d.key)
+                const aggKey = `${d.key}_agg`
+                table = table.derive({
+                    [aggKey]: aq.escape(row => aggregateDate(row[d.key], d.dateAgg))
+                })
             }
         })
 
-        const mappedData = data.map(row => {
-            const newRow = { ...row }
-            dims.forEach(d => {
-                if (d.key === '日期' && d.dateAgg) {
-                    newRow[`${d.key}_${d.dateAgg}`] = aggregateDate(row[d.key], d.dateAgg)
-                }
-            })
-            return newRow
+        // 4. 定义分组键
+        const groupFields = dims.map(d => {
+            if (d.key === '日期' && d.dateAgg) {
+                return `${d.key}_agg`
+            }
+            return d.key
         })
 
-        let table = aq.from(mappedData)
+        // 5. 定义聚合操作
+        const rollupSpec = {}
+        metrics.forEach(m => {
+            rollupSpec[m.key] = aq.op.sum(m.key)
+        })
 
-        // 3. Group
-        if (groupKeys.length > 0) {
-            table = table.groupby(groupKeys)
+        // 6. 执行分组与聚合
+        if (groupFields.length > 0) {
+            table = table.groupby(groupFields).rollup(rollupSpec)
+        } else {
+            table = table.rollup(rollupSpec)
         }
 
-        // 4. Rollup
-        const rollupObj = {}
-        metrics.forEach(m => rollupObj[m.key] = aq.op.sum(m.key))
-        table = table.rollup(rollupObj)
-
-        // 5. Output format
-        const rows = table.objects()
+        // 7. 转换输出格式
+        const result = table.objects()
         const groups = {}
-        const keys = []
 
-        rows.forEach(row => {
-            const meta = {}
-            const values = {}
+        result.forEach(row => {
+            const rowKey = dims.map(d => {
+                const fieldName = (d.key === '日期' && d.dateAgg) ? `${d.key}_agg` : d.key
+                return row[fieldName]
+            }).join(' / ') || '总计'
 
-            const keyParts = groupKeys.map(k => {
-                return row[k]
-            })
-            const keyStr = keyParts.join(' / ') || '总计'
-            if (!keys.includes(keyStr)) keys.push(keyStr)
+            groups[rowKey] = {
+                meta: {},
+                values: {},
+                count: 1
+            }
 
             dims.forEach(d => {
-                if (d.key === '日期' && d.dateAgg) {
-                    meta[d.key] = row[`${d.key}_${d.dateAgg}`]
-                } else {
-                    meta[d.key] = row[d.key]
-                }
+                const fieldName = (d.key === '日期' && d.dateAgg) ? `${d.key}_agg` : d.key
+                groups[rowKey].meta[d.key] = row[fieldName]
             })
 
-            metrics.forEach(m => values[m.key] = row[m.key])
-            groups[keyStr] = { meta, values }
+            metrics.forEach(m => {
+                groups[rowKey].values[m.key] = row[m.key] || 0
+            })
         })
 
-        // Sort keys
-        keys.sort()
-        return { keys, groups }
+        const sortedKeys = Object.keys(groups).sort()
+        return { keys: sortedKeys, groups }
     }
 
     function exportToCSV(aggregatedData, dims, metrics) {
@@ -274,6 +300,7 @@ export const useBiStore = defineStore('bi', () => {
         toggleSelectAll,
         toggleOption,
         updateDateAggregation,
+        aggregateDate,
         aggregateData,
         exportToCSV
     }

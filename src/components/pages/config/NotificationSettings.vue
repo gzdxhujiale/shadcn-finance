@@ -53,9 +53,13 @@ const handleTest = (type) => {
 <template>
   <!-- Teleport 保存按钮到面包屑区域 -->
   <Teleport to="#breadcrumb-actions" defer>
-    <Button size="sm" @click="handleSave">
-      <Save class="mr-2 h-4 w-4" /> 保存设置
-    </Button>
+    <div 
+      class="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+      @click="handleSave"
+    >
+      <Save class="h-4 w-4" />
+      <span>保存设置</span>
+    </div>
   </Teleport>
 
   <div class="h-full flex flex-col">
